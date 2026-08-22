@@ -1,6 +1,6 @@
 {
   "name": "dsh-account-pool",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "DeepSeek Harness plugin: provider-aware account pools for OpenCode Go, OpenCode Zen, and OpenRouter",
   "license": "MIT",
   "keywords": [
@@ -29,6 +29,7 @@
     "usage.js",
     "typert.host.js",
     "client.js",
+    "cordis.patch.yml",
     "README.md",
     "LICENSE"
   ],
@@ -41,6 +42,9 @@
     "./package.json": "./package.json"
   },
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "inject": [
         "@deepseek-ai/dsh-api-remotes",
