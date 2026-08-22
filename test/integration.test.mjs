@@ -15,7 +15,7 @@ import test from 'node:test'
 
 function isolateHome(t) {
   const previous = process.env.DSH_HOME
-  process.env.DSH_HOME = mkdtempSync(join(tmpdir(), 'dsh-opencode-go-pool-'))
+  process.env.DSH_HOME = mkdtempSync(join(tmpdir(), 'dsh-account-pool-'))
   t.after(() => {
     if (previous === undefined) delete process.env.DSH_HOME
     else process.env.DSH_HOME = previous
@@ -24,12 +24,12 @@ function isolateHome(t) {
 
 async function loadHarness(t) {
   isolateHome(t)
-  let Context, LlmRuntime, SettingsProvider, OpenCodeGoPool, LlmAdapter, createUserMessage
+  let Context, LlmRuntime, SettingsProvider, DshAccountPool, LlmAdapter, createUserMessage
   try {
     ;({ Context } = await import('@deepseek-ai/cordis'))
     ;({ default: LlmRuntime, LlmAdapter } = await import('@deepseek-ai/dsh-llm'))
     ;({ SettingsProvider } = await import('@deepseek-ai/dsh-settings'))
-    ;({ OpenCodeGoPool } = await import('../index.js'))
+    ;({ DshAccountPool } = await import('../index.js'))
     ;({ createUserMessage } = await import('@deepseek-ai/dsh-llm/message'))
   } catch {
     t.skip('harness peer deps not installed — link the DSH node_modules to run integration tests')
@@ -53,7 +53,7 @@ async function loadHarness(t) {
       this.doc[ns] = structuredClone(section)
     }
   }
-  return { Context, LlmRuntime, MemorySettings, OpenCodeGoPool, LlmAdapter, createUserMessage }
+  return { Context, LlmRuntime, MemorySettings, DshAccountPool, LlmAdapter, createUserMessage }
 }
 
 const TWO_KEYS = [
@@ -90,25 +90,27 @@ function makeDummyOwner(LlmAdapter) {
   }
 }
 
-async function bootReal(Context, LlmRuntime, MemorySettings, OpenCodeGoPool, entryConfig) {
+async function bootReal(Context, LlmRuntime, MemorySettings, DshAccountPool, entryConfig) {
   const root = new Context()
   await root.plugin(LlmRuntime)
   const memorySettings = new MemorySettings(root)
   root.provide('credentials', { resolve: async () => undefined })
-  await root.plugin(OpenCodeGoPool, entryConfig ?? { keys: TWO_KEYS })
-  return { root, memorySettings, llm: root.get('llm'), plugin: root.get('opencodePool') }
+  await root.plugin(DshAccountPool, entryConfig ?? {
+    providers: { 'opencode-go': { keys: TWO_KEYS } },
+  })
+  return { root, memorySettings, llm: root.get('llm'), plugin: root.get('accountPool') }
 }
 
 test('registers into the real llm registry with the pool retry policy and the pi-ai catalog', async (t) => {
   const harness = await loadHarness(t)
   if (!harness) return
-  const { Context, LlmRuntime, MemorySettings, OpenCodeGoPool } = harness
-  const { root, llm } = await bootReal(Context, LlmRuntime, MemorySettings, OpenCodeGoPool)
+  const { Context, LlmRuntime, MemorySettings, DshAccountPool } = harness
+  const { root, llm } = await bootReal(Context, LlmRuntime, MemorySettings, DshAccountPool)
 
   const providers = llm.listProviders()
   const ours = providers.find(p => p.id === 'opencode-go')
   assert.ok(ours, 'opencode-go route registered')
-  assert.equal(ours.name, 'OpenCode Zen Go（池）')
+  assert.equal(ours.name, 'OpenCode Go')
 
   const policy = llm.providerRetryPolicy('opencode-go')
   assert.equal(policy.mode, 'normal')
@@ -122,8 +124,8 @@ test('registers into the real llm registry with the pool retry policy and the pi
 test('LlmRuntime.stream dispatches through the pool adapter and silent failover', async (t) => {
   const harness = await loadHarness(t)
   if (!harness) return
-  const { Context, LlmRuntime, MemorySettings, OpenCodeGoPool, createUserMessage } = harness
-  const { root, llm, plugin } = await bootReal(Context, LlmRuntime, MemorySettings, OpenCodeGoPool)
+  const { Context, LlmRuntime, MemorySettings, DshAccountPool, createUserMessage } = harness
+  const { root, llm, plugin } = await bootReal(Context, LlmRuntime, MemorySettings, DshAccountPool)
 
   const fake = new FakeInnerAdapter([[quotaFinish], successChunks])
   plugin.makeAttemptAdapter = () => fake
@@ -139,43 +141,43 @@ test('LlmRuntime.stream dispatches through the pool adapter and silent failover'
   assert.equal(finishes[0].reason.kind, 'stop')
   assert.ok(chunks.some(c => c.type === 'text-delta' && c.text === 'hello'))
   assert.equal(fake.calls, 2)
-  assert.equal(plugin.pool.stateOf('acc-a').state, 'exhausted')
-  assert.equal(plugin.pool.activeId, 'acc-b')
+  assert.equal(plugin.poolFor('opencode-go').stateOf('acc-a').state, 'exhausted')
+  assert.equal(plugin.poolFor('opencode-go').activeId, 'acc-b')
   await root.fiber.dispose()
 })
 
 test('putKeys writes through the real settings seam with validation and persistence', async (t) => {
   const harness = await loadHarness(t)
   if (!harness) return
-  const { Context, LlmRuntime, MemorySettings, OpenCodeGoPool } = harness
-  const { root, memorySettings, plugin } = await bootReal(Context, LlmRuntime, MemorySettings, OpenCodeGoPool, { keys: [] })
+  const { Context, LlmRuntime, MemorySettings, DshAccountPool } = harness
+  const { root, memorySettings, plugin } = await bootReal(Context, LlmRuntime, MemorySettings, DshAccountPool, { providers: { 'opencode-go': { keys: [] } } })
 
-  await plugin.putKeys([{ id: 'acc-a', label: '主号', apiKeyEnv: 'OPENCODE_GO_KEY_A' }])
-  assert.equal(plugin.pool.keyCount(), 1)
-  assert.equal(plugin.current().keys.length, 1)
-  assert.ok(memorySettings.persisted.some(entry => entry.ns === 'opencode-go-pool'), 'section persisted')
+  await plugin.putKeys('opencode-go', [{ id: 'acc-a', label: '主号', apiKeyEnv: 'OPENCODE_GO_KEY_A' }])
+  assert.equal(plugin.poolFor('opencode-go').keyCount(), 1)
+  assert.equal(plugin.current().providers['opencode-go'].keys.length, 1)
+  assert.ok(memorySettings.persisted.some(entry => entry.ns === 'dsh-account-pool'), 'section persisted')
 
   // Type-level violation: a non-string apiKeyEnv is refused (schemastery
   // rejects the write; unknown EXTRA fields are stripped, not rejected).
   await assert.rejects(
-    () => plugin.putKeys([{ id: 'acc-a', label: '主号', apiKeyEnv: 12345 }]),
+    () => plugin.putKeys('opencode-go', [{ id: 'acc-a', label: '主号', apiKeyEnv: 12345 }]),
   )
   // Cross-field validation: duplicate env refs refused before any write.
   await assert.rejects(
-    () => plugin.putKeys([
+    () => plugin.putKeys('opencode-go', [
       { id: 'acc-a', label: '主号', apiKeyEnv: 'OPENCODE_GO_KEY_A' },
       { id: 'acc-b', label: '备用', apiKeyEnv: 'OPENCODE_GO_KEY_A' },
     ]),
     /duplicate apiKeyEnv/,
   )
-  assert.equal(plugin.pool.keyCount(), 1, 'pool unchanged after refused writes')
+  assert.equal(plugin.poolFor('opencode-go').keyCount(), 1, 'pool unchanged after refused writes')
   await root.fiber.dispose()
 })
 
 test('takeover against the real registry: dormant while owned, auto-registers when released', async (t) => {
   const harness = await loadHarness(t)
   if (!harness) return
-  const { Context, LlmRuntime, MemorySettings, OpenCodeGoPool, LlmAdapter } = harness
+  const { Context, LlmRuntime, MemorySettings, DshAccountPool, LlmAdapter } = harness
 
   const root = new Context()
   await root.plugin(LlmRuntime)
@@ -186,23 +188,23 @@ test('takeover against the real registry: dormant while owned, auto-registers wh
   const owner = new (makeDummyOwner(LlmAdapter))()
   const ownerRegistration = root.get('llm').registerAdapter(['opencode-go'], owner)
 
-  await root.plugin(OpenCodeGoPool, { keys: TWO_KEYS })
-  const plugin = root.get('opencodePool')
-  assert.equal(plugin.takeoverState(), 'waiting')
+  await root.plugin(DshAccountPool, { providers: { 'opencode-go': { keys: TWO_KEYS } } })
+  const plugin = root.get('accountPool')
+  assert.equal(plugin.takeoverState('opencode-go'), 'waiting')
 
   // The owner releases the route (user deletes the pi-ai row) → the real
   // registry emits adapters-updated → our plugin takes over.
   ownerRegistration()
-  assert.equal(plugin.takeoverState(), 'serving')
+  assert.equal(plugin.takeoverState('opencode-go'), 'serving')
   const ours = root.get('llm').listProviders().find(p => p.id === 'opencode-go')
-  assert.equal(ours.name, 'OpenCode Zen Go（池）')
+  assert.equal(ours.name, 'OpenCode Go')
   await root.fiber.dispose()
 })
 
 test('a different route config registers its own route alongside the owner', async (t) => {
   const harness = await loadHarness(t)
   if (!harness) return
-  const { Context, LlmRuntime, MemorySettings, OpenCodeGoPool, LlmAdapter } = harness
+  const { Context, LlmRuntime, MemorySettings, DshAccountPool, LlmAdapter } = harness
 
   const root = new Context()
   await root.plugin(LlmRuntime)
@@ -210,19 +212,19 @@ test('a different route config registers its own route alongside the owner', asy
   root.provide('credentials', { resolve: async () => undefined })
 
   root.get('llm').registerAdapter(['opencode-go'], new (makeDummyOwner(LlmAdapter))())
-  await root.plugin(OpenCodeGoPool, { route: 'opencode-go-pool', keys: TWO_KEYS })
-  const plugin = root.get('opencodePool')
-  assert.equal(plugin.takeoverState(), 'own-route')
+  await root.plugin(DshAccountPool, { providers: { 'opencode-go': { keys: TWO_KEYS } } })
+  const plugin = root.get('accountPool')
+  assert.equal(plugin.takeoverState('opencode-go'), 'waiting')
   const providers = root.get('llm').listProviders()
   assert.ok(providers.some(p => p.id === 'opencode-go'))
-  assert.ok(providers.some(p => p.id === 'opencode-go-pool'), 'own route coexists')
+  assert.equal(providers.filter(p => p.id === 'opencode-go').length, 1, 'the unified pool owns the canonical route')
   await root.fiber.dispose()
 })
 
 test('putKeySecret stores the literal through the credentials seam, never into settings', async (t) => {
   const harness = await loadHarness(t)
   if (!harness) return
-  const { Context, LlmRuntime, MemorySettings, OpenCodeGoPool } = harness
+  const { Context, LlmRuntime, MemorySettings, DshAccountPool } = harness
 
   const root = new Context()
   await root.plugin(LlmRuntime)
@@ -232,18 +234,18 @@ test('putKeySecret stores the literal through the credentials seam, never into s
     resolve: async () => undefined,
     set: async (ref, value) => { written.push({ ref, value }) },
   })
-  await root.plugin(OpenCodeGoPool, { keys: TWO_KEYS })
-  const plugin = root.get('opencodePool')
+  await root.plugin(DshAccountPool, { providers: { 'opencode-go': { keys: TWO_KEYS } } })
+  const plugin = root.get('accountPool')
 
-  await plugin.putKeySecret('acc-a', 'sk-opencode-test-aaaa')
+  await plugin.putKeySecret('opencode-go', 'acc-a', 'sk-opencode-test-aaaa')
   assert.equal(written.length, 1)
   assert.equal(written[0].value, 'sk-opencode-test-aaaa')
   assert.equal(written[0].ref, 'OPENCODE_GO_KEY_A')
   // The secret never lands in the settings document.
   assert.ok(!JSON.stringify(memorySettings.doc).includes('sk-opencode-test-aaaa'))
 
-  await assert.rejects(() => plugin.putKeySecret('nope', 'x'), /unknown key/)
-  await assert.rejects(() => plugin.putKeySecret('acc-a', '   '), /non-empty secret/)
+  await assert.rejects(() => plugin.putKeySecret('opencode-go', 'nope', 'x'), /unknown key/)
+  await assert.rejects(() => plugin.putKeySecret('opencode-go', 'acc-a', '   '), /non-empty secret/)
   await root.fiber.dispose()
 })
 
@@ -251,39 +253,40 @@ test('putKeySecret stores the literal through the credentials seam, never into s
 test('putConfig updates the switching thresholds through the settings seam', async (t) => {
   const harness = await loadHarness(t)
   if (!harness) return
-  const { Context, LlmRuntime, MemorySettings, OpenCodeGoPool } = harness
+  const { Context, LlmRuntime, MemorySettings, DshAccountPool } = harness
 
   const root = new Context()
   await root.plugin(LlmRuntime)
   new MemorySettings(root)
   root.provide('credentials', { resolve: async () => undefined })
-  await root.plugin(OpenCodeGoPool, { keys: TWO_KEYS })
-  const plugin = root.get('opencodePool')
+  await root.plugin(DshAccountPool, { providers: { 'opencode-go': { keys: TWO_KEYS } } })
+  const plugin = root.get('accountPool')
 
-  await plugin.putConfig({ preemptAtPercent: 80, switchAfterConsecutiveFailures: 3 })
+  await plugin.putConfig('opencode-go', { preemptAtPercent: 80, switchAfterConsecutiveFailures: 3 })
   const status = await plugin.status()
-  assert.equal(status.preemptAtPercent, 80)
-  assert.equal(status.switchAfterConsecutiveFailures, 3)
-  await assert.rejects(() => plugin.putConfig({ preemptAtPercent: 250 }), /0\.\.100/)
-  await assert.rejects(() => plugin.putConfig({}), /no known fields/)
+  const go = status.providers.find(item => item.id === 'opencode-go')
+  assert.equal(go.preemptAtPercent, 80)
+  assert.equal(go.switchAfterConsecutiveFailures, 3)
+  await assert.rejects(() => plugin.putConfig('opencode-go', { preemptAtPercent: 250 }), /0\.\.100/)
+  await assert.rejects(() => plugin.putConfig('opencode-go', {}), /no known fields/)
   await root.fiber.dispose()
 })
 
 test('model selection filters the catalog and gates disabled models through the real seams', async (t) => {
   const harness = await loadHarness(t)
   if (!harness) return
-  const { Context, LlmRuntime, MemorySettings, OpenCodeGoPool } = harness
-  const { root, llm, plugin } = await bootReal(Context, LlmRuntime, MemorySettings, OpenCodeGoPool)
+  const { Context, LlmRuntime, MemorySettings, DshAccountPool } = harness
+  const { root, llm, plugin } = await bootReal(Context, LlmRuntime, MemorySettings, DshAccountPool)
 
   // Default: 'all' mode exposes the whole catalog to the picker and status.
-  let status = await plugin.status()
+  let status = (await plugin.status()).providers.find(item => item.id === 'opencode-go')
   assert.equal(status.modelMode, 'all')
   assert.ok(status.availableModels.length >= 2, 'catalog present in the card data')
   assert.ok(status.availableModels.every(m => m.enabled), 'all models enabled by default')
 
   // Custom selection: only the chosen model survives everywhere.
-  await plugin.putConfig({ modelMode: 'custom', models: ['deepseek-v4-pro', 'deepseek-v4-pro'] })
-  status = await plugin.status()
+  await plugin.putConfig('opencode-go', { modelMode: 'custom', models: ['deepseek-v4-pro', 'deepseek-v4-pro'] })
+  status = (await plugin.status()).providers.find(item => item.id === 'opencode-go')
   assert.equal(status.modelMode, 'custom')
   assert.deepEqual(
     status.availableModels.filter(m => m.enabled).map(m => m.id),
@@ -301,13 +304,13 @@ test('model selection filters the catalog and gates disabled models through the 
   )
 
   // Back to 'all' restores the complete catalog.
-  await plugin.putConfig({ modelMode: 'all' })
+  await plugin.putConfig('opencode-go', { modelMode: 'all' })
   const allAgain = await llm.listModels('opencode-go')
   assert.ok(allAgain.map(m => m.id).includes('glm-5.2'), 'all-mode restores the full catalog')
 
   // Validation: an empty custom selection and a bogus mode are refused.
-  await assert.rejects(() => plugin.putConfig({ modelMode: 'custom', models: [] }), /at least one model/)
-  await assert.rejects(() => plugin.putConfig({ modelMode: 'none' }), /"all" or "custom"/)
-  await assert.rejects(() => plugin.putConfig({ models: ['ok', 42] }), /non-empty model ids/)
+  await assert.rejects(() => plugin.putConfig('opencode-go', { modelMode: 'custom', models: [] }), /at least one model/)
+  await assert.rejects(() => plugin.putConfig('opencode-go', { modelMode: 'none' }), /"all" or "custom"/)
+  await assert.rejects(() => plugin.putConfig('opencode-go', { models: ['ok', 42] }), /non-empty model ids/)
   await root.fiber.dispose()
 })

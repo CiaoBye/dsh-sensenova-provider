@@ -1,26 +1,11 @@
 /**
- * Host half of dsh-opencode-go-pool.
+ * Host half of dsh-account-pool.
  *
- * One class-based Cordis plugin that also exposes the `opencodePool` Typert
- * Remote (strict-mode dispatch driven by `typert.host.js`):
+ * One provider-neutral LLM adapter owns the configured DSH routes and selects
+ * an account pool by provider. Provider-specific protocol, usage, catalog and
+ * failure facts live in drivers.js; KeyPool remains a pure state machine.
  *
- *   1. Registers the `opencode-go-pool` settings namespace (schema + entry
- *      config as the base layer); the card writes keys through `putKeys`
- *      with the settings seam's revision fencing.
- *   2. Maintains the KeyPool state machine, persisted to
- *      `$DSH_HOME/opencode-go-pool.state.json`.
- *   3. Owns the provider route (default `opencode-go`, taking over the
- *      single-key route dsh-llm-pi-ai serves): an LlmAdapter whose stream()
- *      silently retries with the next pool key on quota/credential failures
- *      that arrive before any content, so the conversation never notices.
- *      While the route is owned elsewhere the plugin stays dormant and
- *      re-attempts registration on every `llm/adapters-updated` commit.
- *   4. Answers the card: per-key usage from the official OpenCode Go usage
- *      endpoint, plus switch/disable/clear actions.
- *   5. Model selection: the card picks which catalog models the route
- *      exposes (listModels filters; resolveModel/stream gate the rest).
- *
- * @module dsh-opencode-go-pool
+ * @module dsh-account-pool
  */
 
 import z from '@deepseek-ai/schemastery'
@@ -30,31 +15,20 @@ import { settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import {
   assertUsableApiKey,
-  INVALID_CREDENTIAL_CODE,
   LlmAdapter,
   LlmError,
-  QUOTA_EXCEEDED_CODE,
   resolveRetryPolicy,
 } from '@deepseek-ai/dsh-llm'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
-import { opencodeGoProvider } from '@earendil-works/pi-ai/providers/opencode-go'
-import { AUTH_CODE, KeyPool, assertKeyList } from './pool.js'
-import { fetchUsage, UsageCache } from './usage.js'
+import { PROVIDER_DRIVERS, PROVIDER_IDS, getProviderDriver } from './drivers.js'
+import { mergeLiveModels } from './catalog.js'
+import { KeyPool, assertKeyList, QUOTA_CODE } from './pool.js'
+import { fetchOpenRouterUsage, fetchUsage, UsageCache } from './usage.js'
 
-export const name = 'opencode-go-pool'
+export const name = 'dsh-account-pool'
 
-const NS = settingsNamespace('opencode-go-pool')
-const DISPLAY_NAME = 'OpenCode Zen Go（池）'
-const DEFAULT_ROUTE = 'opencode-go'
-const ALT_ROUTE = 'opencode-go-pool'
-const DEFAULT_USAGE_BASE_URL = 'https://opencode.ai/zen/go/v1/usage'
-const DEFAULT_USAGE_REFRESH_MS = 30000
-const DEFAULT_TIMEOUT_MS = 15000
-const USAGE_CACHE_TTL_MS = 15000
-const REVIVE_THRESHOLD_PERCENT = 98
-const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 300000
-
-/** The default bounded transient-retry code set, plus quota for pool rotation. */
+const NS = settingsNamespace('dsh-account-pool')
+const DEFAULT_CATALOG_REFRESH_MS = 300000
 const BASE_RETRYABLE_CODES = ['EMPTY_RESPONSE', 'RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT']
 
 const keyEntry = z.object({
@@ -63,50 +37,97 @@ const keyEntry = z.object({
   apiKeyEnv: z.string().role('credential-ref'),
 })
 
-export const Config = z.object({
-  route: z.union([DEFAULT_ROUTE, ALT_ROUTE]).default(DEFAULT_ROUTE),
+const providerSection = z.object({
+  enabled: z.boolean().default(true),
+  takeover: z.boolean().default(true),
   keys: z.array(keyEntry).default([]),
   preemptAtPercent: z.number().min(0).max(100).default(100),
-  // Consecutive non-quota failures (rate limit / server / timeout) after
-  // which the pool rotates away from a key; 0 disables the rule.
   switchAfterConsecutiveFailures: z.number().min(0).max(20).default(0),
-  // Which models the pool route exposes. 'all' follows the official catalog
-  // (new models appear automatically); 'custom' exposes exactly `models`.
   modelMode: z.union(['all', 'custom']).default('all'),
   models: z.array(z.string()).default([]),
-  usageBaseUrl: z.string().default(DEFAULT_USAGE_BASE_URL),
-  usageRefreshMs: z.number().min(5000).max(300000).default(DEFAULT_USAGE_REFRESH_MS),
-  timeoutMs: z.number().min(1000).max(120000).default(DEFAULT_TIMEOUT_MS),
+  usageBaseUrl: z.string().default(''),
+  modelsBaseUrl: z.string().default(''),
+  usageRefreshMs: z.number().min(5000).max(300000).default(30000),
+  catalogRefreshMs: z.number().min(30000).max(86400000).default(DEFAULT_CATALOG_REFRESH_MS),
+  timeoutMs: z.number().min(1000).max(120000).default(15000),
 })
 
-/** Cross-field constraints the schema cannot express; refuses the write. */
+export const Config = z.object({
+  providers: z.object({
+    'opencode-go': providerSection.default({}),
+    opencode: providerSection.default({}),
+    openrouter: providerSection.default({}),
+  }).default({}),
+})
+
 function validateSection(value) {
-  assertKeyList(value.keys ?? [])
+  const providers = value && value.providers ? value.providers : {}
+  for (const id of PROVIDER_IDS) assertKeyList(providers[id]?.keys ?? [])
 }
 
-/** Build the resolved pi-ai profile for the opencode-go catalog route. */
-function buildProfile(route) {
-  const provider = opencodeGoProvider()
-  if (provider.id !== route) provider.id = route
+function defaultSection(id) {
+  const driver = getProviderDriver(id)
   return {
-    provider: route,
-    displayName: DISPLAY_NAME,
-    streamIdleTimeoutMs: DEFAULT_STREAM_IDLE_TIMEOUT_MS,
-    retryPolicy: resolveRetryPolicy(undefined, 'opencode-go-pool.catalog.retryPolicy'),
-    piProvider: provider,
-    configuredMaxTokens: new Map(),
-    // Newer llm-pi-ai builds read modelCapabilities in listModels; a catalog
-    // route with no configured overrides declares none, so an empty map is
-    // the exact contract (capabilityInfo() returns no claims).
-    modelCapabilities: new Map(),
+    enabled: true,
+    takeover: true,
+    keys: [],
+    preemptAtPercent: 100,
+    switchAfterConsecutiveFailures: 0,
+    modelMode: 'all',
+    models: [],
+    usageBaseUrl: driver?.defaultUsageBaseUrl ?? '',
+    modelsBaseUrl: driver?.defaultModelsUrl ?? '',
+    usageRefreshMs: driver?.defaultUsageRefreshMs ?? 30000,
+    catalogRefreshMs: DEFAULT_CATALOG_REFRESH_MS,
+    timeoutMs: driver?.defaultTimeoutMs ?? 15000,
   }
 }
 
-/** A terminal error finish stating the whole pool is dry. */
+/** Normalize settings documents and migrate the original Go-only shape. */
+function normalizeConfig(raw) {
+  const input = raw && typeof raw === 'object' ? raw : {}
+  const sections = input.providers && typeof input.providers === 'object' ? input.providers : {}
+  const legacyGo = Object.keys(sections).length === 0 && (
+    input.keys !== undefined || input.route !== undefined || input.usageBaseUrl !== undefined
+  ) ? input : null
+  const providers = {}
+  for (const id of PROVIDER_IDS) {
+    const source = sections[id] ?? (id === 'opencode-go' ? legacyGo : null) ?? {}
+    providers[id] = { ...defaultSection(id), ...source }
+    const driver = getProviderDriver(id)
+    // The schemastery document intentionally uses empty strings so the
+    // provider-specific defaults stay in one driver table. Reapply those
+    // defaults after schema resolution; otherwise every live catalog/usage
+    // request would silently target an empty URL.
+    if (!providers[id].usageBaseUrl && driver?.defaultUsageBaseUrl) {
+      providers[id].usageBaseUrl = driver.defaultUsageBaseUrl
+    }
+    if (!providers[id].modelsBaseUrl && driver?.defaultModelsUrl) {
+      providers[id].modelsBaseUrl = driver.defaultModelsUrl
+    }
+    if (!Array.isArray(providers[id].keys)) providers[id].keys = []
+    if (!Array.isArray(providers[id].models)) providers[id].models = []
+  }
+  return { providers }
+}
+
+/** Convert the original flat Go-only composition entry into the new shape. */
+function migrateEntryConfig(raw) {
+  if (!raw || typeof raw !== 'object') return {}
+  if (raw.providers && typeof raw.providers === 'object') return raw
+  const legacyFields = [
+    'keys', 'route', 'preemptAtPercent', 'switchAfterConsecutiveFailures',
+    'modelMode', 'models', 'usageBaseUrl', 'usageRefreshMs', 'timeoutMs',
+  ]
+  if (!legacyFields.some(field => raw[field] !== undefined)) return raw
+  const { providers: _ignored, ...legacy } = raw
+  return { providers: { 'opencode-go': legacy } }
+}
+
 function dryPoolFinish(message) {
   return {
     type: 'finish',
-    reason: { kind: 'error', failure: { code: QUOTA_EXCEEDED_CODE, message } },
+    reason: { kind: 'error', failure: { code: QUOTA_CODE, message } },
   }
 }
 
@@ -118,79 +139,104 @@ function isContentChunk(chunk) {
     || chunk.type === 'block-end'
 }
 
-/** Quota → rotate; credential problems → rotate (invalid mark); everything else keeps the key. */
-function isRotationFailure(failure) {
-  if (!failure) return false
-  const code = failure.code
-  return code === QUOTA_EXCEEDED_CODE || code === INVALID_CREDENTIAL_CODE || code === AUTH_CODE
-}
-
 function failureOf(error) {
   if (error && typeof error === 'object'
-      && typeof error.code === 'string' && typeof error.message === 'string') {
-    return { code: error.code, message: error.message }
+      && (typeof error.code === 'string' || typeof error.message === 'string')) {
+    return error
   }
   return null
 }
 
-/**
- * The pool adapter. Metadata (catalog, retry policy shape, model resolution)
- * delegates to a catalog PiAiAdapter; stream() runs the failover loop.
- */
-class OpenCodeGoPoolAdapter extends LlmAdapter {
+function errorText(error) {
+  return String((error && error.message) || error)
+}
+
+async function fetchJson(url, { headers = {}, timeoutMs = 15000 } = {}) {
+  if (typeof fetch !== 'function') throw new Error('fetch is not available')
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const response = await fetch(url, { headers, signal: controller.signal })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    return await response.json()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function cloneProviderWithCatalog(provider, catalog) {
+  return {
+    ...provider,
+    getModels: () => catalog.models,
+  }
+}
+
+/** Provider-neutral adapter with per-provider account failover. */
+class AccountPoolAdapter extends LlmAdapter {
   constructor(plugin) {
     super()
     this.plugin = plugin
   }
 
   providerInfo(provider) {
-    return { id: provider, name: DISPLAY_NAME }
+    const driver = this.plugin.driverFor(provider)
+    return { id: provider, name: driver?.displayName ?? provider }
   }
 
-  providerRetryPolicy(_provider) {
-    const budget = Math.max(2, this.plugin.pool.keyCount())
+  providerRetryPolicy(provider) {
+    const pool = this.plugin.poolFor(provider)
+    const budget = Math.max(2, pool ? pool.keyCount() : 0)
     return resolveRetryPolicy({
       mode: 'normal',
       maxRetries: budget,
-      retryableCodes: [...BASE_RETRYABLE_CODES, QUOTA_EXCEEDED_CODE],
-    }, 'opencode-go-pool.retryPolicy')
+      retryableCodes: [...BASE_RETRYABLE_CODES, QUOTA_CODE],
+    }, `dsh-account-pool.${provider}.retryPolicy`)
   }
 
   async listModels(provider) {
+    const driver = this.plugin.driverFor(provider)
+    if (!driver) return []
+    await this.plugin.refreshCatalog(provider)
     const list = await this.plugin.innerCatalog.listModels(provider)
-    const selection = this.plugin.modelSelection()
+    const selection = this.plugin.modelSelection(provider)
     if (selection === null) return list
     return list.filter(entry => selection.has(entry.id))
   }
 
   async resolveModel(provider, model, signal) {
-    const selection = this.plugin.modelSelection()
+    const driver = this.plugin.driverFor(provider)
+    if (!driver) throw new LlmError(`unknown account-pool provider "${provider}"`, 'UNKNOWN_PROVIDER')
+    const selection = this.plugin.modelSelection(provider)
     if (selection !== null && !selection.has(model)) {
       throw new LlmError(
-        `model "${model}" is not enabled in the OpenCode Go pool model selection (Settings → OpenCode Go 套餐池 → 模型选择)`,
+        `model "${model}" is not enabled in the ${driver.displayName} account pool model selection`,
         'UNKNOWN_MODEL',
       )
     }
+    await this.plugin.refreshCatalog(provider)
     return this.plugin.innerCatalog.resolveModel(provider, model, signal)
   }
 
   async *stream(options) {
-    const selection = this.plugin.modelSelection()
+    const provider = options.provider
+    const driver = this.plugin.driverFor(provider)
+    if (!driver) throw new LlmError(`unknown account-pool provider "${provider}"`, 'UNKNOWN_PROVIDER')
+    const selection = this.plugin.modelSelection(provider)
     if (selection !== null && options.model && !selection.has(options.model)) {
       throw new LlmError(
-        `model "${options.model}" is not enabled in the OpenCode Go pool model selection (Settings → OpenCode Go 套餐池 → 模型选择)`,
+        `model "${options.model}" is not enabled in the ${driver.displayName} account pool model selection`,
         'UNKNOWN_MODEL',
       )
     }
-    const pool = this.plugin.pool
+    const pool = this.plugin.poolFor(provider)
     const attempts = pool.usableCount() + 1
     for (let attempt = 0; attempt < attempts; attempt++) {
       const entry = pool.currentKey()
       if (!entry) {
-        yield dryPoolFinish('opencode-go-pool: every key is exhausted, disabled, or invalid — add or revive a key in Settings → OpenCode Go 套餐池')
+        yield dryPoolFinish(`${driver.displayName} account pool: every key is exhausted, disabled, or invalid`)
         return
       }
-      const inner = this.plugin.makeAttemptAdapter(entry)
+      const inner = this.plugin.makeAttemptAdapter(provider, entry)
       let emitted = false
       let silentRetry = false
       let finish = null
@@ -198,11 +244,8 @@ class OpenCodeGoPoolAdapter extends LlmAdapter {
         for await (const chunk of inner.stream(options)) {
           if (chunk.type === 'finish') {
             if (chunk.reason.kind === 'error') {
-              // quota/auth codes rotate the pool; other codes count the
-              // transient-failure streak and rotate once the configured
-              // consecutive-failure threshold trips. Either rotation can
-              // trigger a silent retry while no content was emitted.
-              const rotation = pool.onFailure(entry.id, chunk.reason.failure)
+              const failure = driver.classifyFailure(chunk.reason.failure)
+              const rotation = pool.onFailure(entry.id, failure)
               if (rotation !== null) silentRetry = !emitted
             } else if (chunk.reason.kind !== 'aborted') {
               pool.onSuccess(entry.id)
@@ -214,177 +257,230 @@ class OpenCodeGoPoolAdapter extends LlmAdapter {
           yield chunk
         }
       } catch (error) {
-        const failure = failureOf(error)
-        if (failure) {
-          const rotation = pool.onFailure(entry.id, failure)
-          if (rotation !== null && !emitted) {
-            silentRetry = true
-          } else {
-            throw error
-          }
-        } else {
-          throw error
-        }
+        const rawFailure = failureOf(error)
+        if (!rawFailure) throw error
+        const failure = driver.classifyFailure(rawFailure)
+        const rotation = pool.onFailure(entry.id, failure)
+        if (rotation !== null && !emitted) silentRetry = true
+        else throw error
       }
       if (silentRetry) continue
       if (finish !== null) {
         yield finish
         return
       }
-      // Degenerate inner adapter that ended without a terminal finish.
       return
     }
   }
 }
 
-/**
- * The plugin service. Extends TypertRemoteService so the Gateway can claim
- * and dispatch the `opencodePool` invocations declared in typert.host.js.
- */
-export class OpenCodeGoPool extends TypertRemoteService {
+/** Host plugin service and Typert Remote implementation. */
+export class DshAccountPool extends TypertRemoteService {
   static inject = ['llm', 'credentials', 'settings']
   static Config = Config
 
   constructor(ctx, config) {
-    super(ctx, 'opencodePool')
+    super(ctx, 'accountPool')
     this.ctx = ctx
     this.logger = ctx.logger ?? console
-
     this.scope = ctx.settings.register(NS, Config, {
-      base: config ?? {},
+      base: migrateEntryConfig(config),
       validate: validateSection,
     })
-    this.current = () => this.scope.get()
+    this.current = () => normalizeConfig(this.scope.get())
 
-    this.pool = new KeyPool({
-      stateFile: dshHomePath('opencode-go-pool.state.json'),
-      reviveThresholdPercent: REVIVE_THRESHOLD_PERCENT,
+    this.pools = new Map()
+    this.catalogs = new Map()
+    this.profileMap = new Map()
+    this.registrations = new Map()
+    this.serving = new Set()
+    this.lastTakeoverErrors = new Map()
+    this.usageCache = new UsageCache({ ttlMs: 15000 })
+
+    for (const id of PROVIDER_IDS) {
+      const driver = PROVIDER_DRIVERS[id]
+      const baseProvider = driver.createProvider()
+      const staticModels = [...baseProvider.getModels()]
+      const catalog = {
+        baseProvider,
+        staticModels,
+        models: staticModels,
+        checkedAt: 0,
+        error: null,
+        inflight: null,
+      }
+      catalog.provider = cloneProviderWithCatalog(baseProvider, catalog)
+      this.catalogs.set(id, catalog)
+      this.profileMap.set(id, driver.buildProfile(catalog.provider, resolveRetryPolicy))
+      this.pools.set(id, new KeyPool({
+        stateFile: dshHomePath(`dsh-account-pool.${id}.state.json`),
+        reviveThresholdPercent: 98,
+      }))
+    }
+    this.innerCatalog = new PiAiAdapter({
+      profiles: () => this.profileMap,
+      resolveApiKey: async () => {
+        throw new Error('dsh-account-pool: catalog adapter never resolves account keys')
+      },
+      resolveAttachments: () => this.ctx.get('attachments'),
     })
-    this.usageCache = new UsageCache({ ttlMs: USAGE_CACHE_TTL_MS })
-
-    this.profileRoute = null
-    this.profileMap = null
-    this.innerCatalog = null
-    this.poolAdapter = null
-    this.registration = null
-    this.servingRoute = null
-    this.lastTakeoverError = null
-    this.lastModelSelection = null
+    this.poolAdapter = new AccountPoolAdapter(this)
 
     this.applyConfig()
     this.scope.watch(() => this.applyConfig())
-    this.offAdaptersUpdated = ctx.on('llm/adapters-updated', () => {
-      if (this.servingRoute === null) this.tryRegister()
-    })
-    this.tryRegister()
+    this.offAdaptersUpdated = ctx.on('llm/adapters-updated', () => this.tryRegisterAll())
+    this.tryRegisterAll()
   }
 
-  // ---- configuration & registration ---------------------------------------
+  driverFor(provider) {
+    return getProviderDriver(provider)
+  }
+
+  poolFor(provider) {
+    return this.pools.get(provider) ?? null
+  }
+
+  providerConfig(provider) {
+    return this.current().providers[provider] ?? null
+  }
 
   applyConfig() {
     const cfg = this.current()
-    this.pool.setPreempt(cfg.preemptAtPercent)
-    this.pool.setConsecutiveThreshold(cfg.switchAfterConsecutiveFailures)
-    this.pool.syncKeys(cfg.keys)
-
-    if (this.profileRoute !== cfg.route) {
-      this.profileRoute = cfg.route
-      this.profileMap = new Map([[cfg.route, buildProfile(cfg.route)]])
-      this.innerCatalog = new PiAiAdapter({
-        profiles: () => this.profileMap,
-        resolveApiKey: async () => {
-          throw new Error('opencode-go-pool: the catalog adapter never resolves keys')
-        },
-        resolveAttachments: () => this.ctx.get('attachments'),
-      })
+    for (const id of PROVIDER_IDS) {
+      const section = cfg.providers[id]
+      const pool = this.poolFor(id)
+      pool.setPreempt(section.preemptAtPercent)
+      pool.setConsecutiveThreshold(section.switchAfterConsecutiveFailures)
+      pool.syncKeys(section.keys)
+      // The DSH registry captures retry policy facts when a route is
+      // registered. Key-count changes alter that budget, so re-announce a
+      // serving route after settings commits.
+      if (this.serving.has(id)) this.announceAdapterChange(id)
     }
-    if (!this.poolAdapter) this.poolAdapter = new OpenCodeGoPoolAdapter(this)
+    this.tryRegisterAll()
+  }
 
-    const selection = this.modelSelectionKey(cfg)
-    if (this.servingRoute === cfg.route) {
-      // The model selection changed without a route change: re-announce the
-      // route so model pickers refresh their catalog from the filtered
-      // listModels(). Settings docs that predate the field read as 'all'.
-      if (this.lastModelSelection !== null && this.lastModelSelection !== selection) {
-        this.announceAdapterChange()
+  modelSelection(provider) {
+    const cfg = this.providerConfig(provider)
+    if (!cfg || cfg.modelMode !== 'custom') return null
+    return new Set(Array.isArray(cfg.models) ? cfg.models : [])
+  }
+
+  async refreshCatalog(provider, force = false) {
+    const driver = this.driverFor(provider)
+    const catalog = this.catalogs.get(provider)
+    const cfg = this.providerConfig(provider)
+    if (!driver || !catalog || !cfg || !cfg.modelsBaseUrl) return catalog
+    const now = Date.now()
+    if (!force && catalog.checkedAt > 0 && now - catalog.checkedAt < cfg.catalogRefreshMs) return catalog
+    if (catalog.inflight) return catalog.inflight
+    catalog.inflight = (async () => {
+      try {
+        let apiKey
+        if (provider === 'openrouter') {
+          const active = this.poolFor(provider)?.currentKey()
+          if (active) {
+            try { apiKey = await this.resolveKeyValue(provider, active) } catch { apiKey = undefined }
+          }
+        }
+        const body = await fetchJson(cfg.modelsBaseUrl, {
+          timeoutMs: cfg.timeoutMs,
+          headers: {
+            ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+            Accept: 'application/json',
+          },
+        })
+        const next = mergeLiveModels(provider, catalog.staticModels, body)
+        const changed = JSON.stringify(next) !== JSON.stringify(catalog.models)
+        catalog.models = next
+        catalog.error = null
+        if (changed) {
+          // PiAiAdapter memoizes the Models collection by profile-map
+          // identity. Publish a fresh profile map so the live catalog is
+          // visible to listModels, resolveModel and subsequent streams while
+          // in-flight calls keep their old snapshot.
+          const driver = this.driverFor(provider)
+          const nextProfiles = new Map(this.profileMap)
+          nextProfiles.set(provider, driver.buildProfile(catalog.provider, resolveRetryPolicy))
+          this.profileMap = nextProfiles
+          this.announceAdapterChange(provider)
+        }
+      } catch (error) {
+        catalog.error = errorText(error)
+      } finally {
+        catalog.checkedAt = Date.now()
+        catalog.inflight = null
       }
-      this.lastModelSelection = selection
+      return catalog
+    })()
+    return catalog.inflight
+  }
+
+  announceAdapterChange(provider) {
+    const registration = this.registrations.get(provider)
+    if (!registration || !this.serving.has(provider)) return
+    try {
+      registration.replace([provider])
+    } catch (error) {
+      this.logger?.warn?.(`[dsh-account-pool] catalog re-announce failed for ${provider}: ${errorText(error)}`)
+    }
+  }
+
+  tryRegisterAll() {
+    for (const id of PROVIDER_IDS) this.tryRegister(id)
+  }
+
+  tryRegister(provider) {
+    const section = this.providerConfig(provider)
+    if (!section) return
+    if (!section.enabled || !section.takeover) {
+      this.unserve(provider)
       return
     }
-    this.lastModelSelection = selection
-    this.tryRegister()
-  }
-
-  /** A stable key for the enabled-model selection (null = all models). */
-  modelSelectionKey(cfg) {
-    return JSON.stringify([cfg.modelMode ?? 'all', [...(cfg.models ?? [])].sort()])
-  }
-
-  /**
-   * The enabled-model filter: null = the whole catalog, otherwise the Set of
-   * explicitly selected ids. Tolerates undefined fields from pre-feature
-   * settings documents.
-   */
-  modelSelection() {
-    const cfg = this.current()
-    if (cfg.modelMode !== 'custom' || !Array.isArray(cfg.models) || cfg.models.length === 0) return null
-    return new Set(cfg.models)
-  }
-
-  /** Re-announce the current route so adapters-updated listeners refresh catalogs. */
-  announceAdapterChange() {
-    if (this.registration === null || this.servingRoute === null) return
+    if (this.serving.has(provider)) return
     try {
-      this.registration.replace([this.servingRoute])
-    } catch (error) {
-      this.logger?.warn?.(`[opencode-go-pool] catalog re-announce failed: ${String((error && error.message) || error)}`)
-    }
-  }
-
-  /**
-   * Register (or atomically re-route) the pool adapter. A conflicting route
-   * leaves the previous registration serving and records the refusal; the
-   * `llm/adapters-updated` subscription retries after every topology commit,
-   * so removing the opencode-go row under Settings → Models hands the route
-   * to this plugin automatically.
-   */
-  tryRegister() {
-    const route = this.current().route
-    if (this.servingRoute === route) return
-    try {
-      if (this.registration === null) {
-        this.registration = this.ctx.llm.registerAdapter([route], this.poolAdapter)
+      let registration = this.registrations.get(provider)
+      if (!registration) {
+        registration = this.ctx.llm.registerAdapter([provider], this.poolAdapter)
+        this.registrations.set(provider, registration)
       } else {
-        this.registration.replace([route])
+        registration.replace([provider])
       }
-      this.servingRoute = route
-      this.lastTakeoverError = null
-      this.logger?.info?.(`[opencode-go-pool] serving provider route "${route}"`)
+      this.serving.add(provider)
+      this.lastTakeoverErrors.delete(provider)
+      this.logger?.info?.(`[dsh-account-pool] serving provider route "${provider}"`)
     } catch (error) {
-      this.lastTakeoverError = String((error && error.message) || error)
-      this.logger?.warn?.(`[opencode-go-pool] route "${route}" unavailable: ${this.lastTakeoverError}; waiting for the owning plugin to release it`)
+      this.lastTakeoverErrors.set(provider, errorText(error))
+      this.logger?.warn?.(`[dsh-account-pool] route "${provider}" unavailable: ${errorText(error)}`)
     }
   }
 
-  takeoverState() {
-    if (this.servingRoute === DEFAULT_ROUTE) return 'serving'
-    if (this.servingRoute === ALT_ROUTE) return 'own-route'
-    return 'waiting'
+  unserve(provider) {
+    const registration = this.registrations.get(provider)
+    if (!registration || !this.serving.has(provider)) return
+    try {
+      registration.replace([])
+    } catch (error) {
+      this.logger?.warn?.(`[dsh-account-pool] route release failed for ${provider}: ${errorText(error)}`)
+    }
+    this.serving.delete(provider)
   }
 
-  // ---- credentials & adapters ----------------------------------------------
+  takeoverState(provider) {
+    const section = this.providerConfig(provider)
+    if (!section || !section.enabled || !section.takeover) return 'disabled'
+    return this.serving.has(provider) ? 'serving' : 'waiting'
+  }
 
-  /** Per-attempt adapter bound to one key: no cross-attempt key races. */
-  makeAttemptAdapter(entry) {
+  makeAttemptAdapter(provider, entry) {
     return new PiAiAdapter({
       profiles: () => this.profileMap,
-      resolveApiKey: () => this.resolveKeyValue(entry),
+      resolveApiKey: () => this.resolveKeyValue(provider, entry),
       resolveAttachments: () => this.ctx.get('attachments'),
     })
   }
 
-  /** Resolve one key's credential reference through the credentials seam. */
-  async resolveKeyValue(entry) {
+  async resolveKeyValue(provider, entry) {
     const credentials = this.ctx.get('credentials')
     const ref = credentialRef(entry.apiKeyEnv)
     let hit
@@ -396,118 +492,180 @@ export class OpenCodeGoPool extends TypertRemoteService {
       }
     }
     if (!hit || hit.length === 0) {
+      const name = this.driverFor(provider)?.displayName ?? provider
       throw new LlmError(
-        `opencode-go-pool: no credential for key "${entry.id}" (${entry.apiKeyEnv}) — store it through the credentials service (the web Models page writes it) or export it`,
+        `dsh-account-pool: no credential for ${name} key "${entry.id}" (${entry.apiKeyEnv})`,
         'MISSING_CREDENTIAL',
       )
     }
-    return assertUsableApiKey(hit, 'opencode-go-pool', ref)
+    return assertUsableApiKey(hit, 'dsh-account-pool', ref)
   }
 
-  // ---- Typert Remote surface (the card) -------------------------------------
-
-  /** The card-facing model selector data: catalog entries plus enabled flags. */
-  async listAvailableModels(cfg) {
-    const route = this.profileRoute ?? cfg.route
-    let catalog = []
-    try {
-      if (this.innerCatalog) catalog = await this.innerCatalog.listModels(route)
-    } catch {
-      catalog = []
-    }
-    const selection = cfg.modelMode === 'custom' && Array.isArray(cfg.models) ? new Set(cfg.models) : null
-    return catalog.map(entry => ({
+  async listAvailableModels(provider, { refresh = true } = {}) {
+    const catalog = refresh
+      ? await this.refreshCatalog(provider)
+      : this.catalogs.get(provider)
+    const list = catalog ? catalog.models : []
+    const selection = this.modelSelection(provider)
+    return list.map(entry => ({
       id: entry.id,
       name: entry.name ?? entry.id,
       enabled: selection === null || selection.has(entry.id),
     }))
   }
 
-  async status() {
-    const cfg = this.current()
-    const fetchedAt = new Date().toISOString()
-    const entries = this.pool.entries()
-    const availableModels = await this.listAvailableModels(cfg)
+  async providerStatus(provider) {
+    const driver = this.driverFor(provider)
+    const cfg = this.providerConfig(provider)
+    const pool = this.poolFor(provider)
+    const entries = pool.entries()
+    // status() is polled by the settings page and must not turn every page
+    // refresh into three external catalog requests. listModels/resolveModel
+    // still refresh the live catalog on demand, and the page exposes an
+    // explicit refreshModels action.
+    const catalog = this.catalogs.get(provider)
+    const availableModels = await this.listAvailableModels(provider, { refresh: false })
     const usageResults = await Promise.all(entries.map(async entry => {
+      let key
       try {
-        const key = await this.resolveKeyValue(entry)
-        const usage = await this.usageCache.get(entry.id, () => fetchUsage({
-          baseUrl: cfg.usageBaseUrl,
-          apiKey: key,
-          timeoutMs: cfg.timeoutMs,
-        }))
-        this.pool.onUsage(entry.id, usage)
-        return { id: entry.id, usage, usageError: null, fetchedAt, credentialSet: true }
+        key = await this.resolveKeyValue(provider, entry)
       } catch (error) {
-        const code = error && error.code ? error.code : 'network'
         return {
           id: entry.id,
           usage: null,
-          usageError: code === 'MISSING_CREDENTIAL' ? 'no-api-key' : code,
+          usageError: error.code === 'MISSING_CREDENTIAL' ? 'no-api-key' : 'credential',
           fetchedAt: null,
-          credentialSet: code !== 'MISSING_CREDENTIAL',
+          credentialSet: false,
+        }
+      }
+      if (driver.usageKind === 'unsupported') {
+        return {
+          id: entry.id,
+          usage: null,
+          usageError: 'unsupported',
+          fetchedAt: null,
+          credentialSet: true,
+        }
+      }
+      try {
+        const usage = await this.usageCache.get(`${provider}:${entry.id}`, () => {
+          const options = {
+            baseUrl: cfg.usageBaseUrl,
+            apiKey: key,
+            timeoutMs: cfg.timeoutMs,
+          }
+          return provider === 'openrouter' ? fetchOpenRouterUsage(options) : fetchUsage(options)
+        })
+        // Usage drives both preemption and eventual revival. Provider drivers
+        // classify whether the endpoint is authoritative, but the pool must
+        // retain the facts even for a provider that has no auto-revive policy.
+        pool.onUsage(entry.id, usage)
+        return {
+          id: entry.id,
+          usage,
+          usageError: null,
+          fetchedAt: new Date().toISOString(),
+          credentialSet: true,
+        }
+      } catch (error) {
+        return {
+          id: entry.id,
+          usage: null,
+          usageError: error?.code ?? 'network',
+          fetchedAt: null,
+          credentialSet: true,
         }
       }
     }))
     return {
-      takeover: this.takeoverState(),
-      route: this.servingRoute ?? cfg.route,
+      id: provider,
+      displayName: driver.displayName,
+      route: provider,
+      enabled: cfg.enabled,
+      takeover: this.takeoverState(provider),
+      takeoverHint: this.lastTakeoverErrors.get(provider) ?? null,
+      usageKind: driver.usageKind,
+      canPreemptByUsage: driver.canPreemptByUsage,
+      canAutoRevive: driver.canAutoRevive,
       usageRefreshMs: cfg.usageRefreshMs,
+      catalogRefreshMs: cfg.catalogRefreshMs,
+      catalogError: catalog?.error ?? null,
       preemptAtPercent: cfg.preemptAtPercent,
       switchAfterConsecutiveFailures: cfg.switchAfterConsecutiveFailures,
-      modelMode: cfg.modelMode ?? 'all',
+      modelMode: cfg.modelMode,
       availableModels,
-      activeId: this.pool.activeId,
-      lastSwitch: this.pool.lastSwitch,
-      takeoverHint: this.servingRoute ? null : this.lastTakeoverError,
+      activeId: pool.activeId,
+      lastSwitch: pool.lastSwitch,
       keys: entries.map(entry => {
-        const st = this.pool.stateOf(entry.id)
-        const result = usageResults.find(item => item.id === entry.id)
+        const state = pool.stateOf(entry.id)
+        const usage = usageResults.find(item => item.id === entry.id)
         return {
           id: entry.id,
           label: entry.label,
           apiKeyEnv: entry.apiKeyEnv,
-          state: st.state,
-          active: entry.id === this.pool.activeId,
-          usage: (result && result.usage) ?? null,
-          usageError: (result && result.usageError) ?? null,
-          fetchedAt: (result && result.fetchedAt) ?? null,
-          credentialSet: (result && result.credentialSet) ?? false,
-          lastFailure: st.lastFailure ?? null,
+          state: state.state,
+          active: entry.id === pool.activeId,
+          usage: usage?.usage ?? null,
+          usageError: usage?.usageError ?? null,
+          fetchedAt: usage?.fetchedAt ?? null,
+          credentialSet: usage?.credentialSet ?? false,
+          lastFailure: state.lastFailure ?? null,
         }
       }),
     }
   }
 
-  async setActive(id) {
-    this.pool.setActive(id)
+  async status() {
+    return {
+      version: 1,
+      providers: await Promise.all(PROVIDER_IDS.map(provider => this.providerStatus(provider))),
+    }
+  }
+
+  assertProvider(provider) {
+    const driver = this.driverFor(provider)
+    if (!driver) throw new Error(`unsupported provider "${provider}"`)
+    return driver
+  }
+
+  async setActive(provider, id) {
+    this.assertProvider(provider)
+    this.poolFor(provider).setActive(id)
     return true
   }
 
-  async setDisabled(id, on) {
-    this.pool.setDisabled(id, on)
+  async setDisabled(provider, id, on) {
+    this.assertProvider(provider)
+    this.poolFor(provider).setDisabled(id, on)
     return true
   }
 
-  async clearInvalid(id) {
-    this.pool.clearInvalid(id)
+  async clearInvalid(provider, id) {
+    this.assertProvider(provider)
+    this.poolFor(provider).clearInvalid(id)
     return true
   }
 
-  async putKeys(keys) {
+  async updateProvider(provider, patch) {
+    this.assertProvider(provider)
+    const current = this.current().providers
+    const next = Object.fromEntries(PROVIDER_IDS.map(id => [
+      id,
+      { ...current[id], ...(id === provider ? patch : {}) },
+    ]))
+    await this.scope.update({ providers: next })
+  }
+
+  async putKeys(provider, keys) {
+    this.assertProvider(provider)
     assertKeyList(keys)
-    await this.scope.update({ keys })
+    await this.updateProvider(provider, { keys })
     return true
   }
 
-  /**
-   * Store one key's literal secret through the credentials seam under its
-   * configured reference name. The secret never enters settings, logs, or
-   * any response — the same carrier and trust domain the Models page uses
-   * when it writes credentials.
-   */
-  async putKeySecret(id, secret) {
-    const entry = this.pool.entries().find(item => item.id === id)
+  async putKeySecret(provider, id, secret) {
+    this.assertProvider(provider)
+    const entry = this.poolFor(provider).entries().find(item => item.id === id)
     if (!entry) throw new Error(`unknown key "${id}"`)
     if (typeof secret !== 'string' || secret.trim().length === 0) {
       throw new Error(`key "${id}" needs a non-empty secret`)
@@ -517,18 +675,24 @@ export class OpenCodeGoPool extends TypertRemoteService {
       throw new Error('no credentials service is mounted — set the key through the credentials page instead')
     }
     const ref = credentialRef(entry.apiKeyEnv)
-    const usable = assertUsableApiKey(secret.trim(), 'opencode-go-pool', ref)
+    const usable = assertUsableApiKey(secret.trim(), 'dsh-account-pool', ref)
     await credentials.set(ref, usable)
-    // A freshly supplied secret may repair an invalid-marked key.
-    this.pool.clearInvalid(id)
-    this.usageCache.invalidate(id)
+    this.poolFor(provider).clearInvalid(id)
+    this.usageCache.invalidate(`${provider}:${id}`)
     return true
   }
 
-  /** Update the card-visible pool settings (thresholds only, never keys). */
-  async putConfig(config) {
+  async putConfig(provider, config) {
+    this.assertProvider(provider)
     if (!config || typeof config !== 'object') throw new Error('putConfig needs an object')
     const patch = {}
+    const booleanFields = ['enabled', 'takeover']
+    for (const field of booleanFields) {
+      if (config[field] !== undefined) {
+        if (typeof config[field] !== 'boolean') throw new Error(`${field} must be boolean`)
+        patch[field] = config[field]
+      }
+    }
     if (config.preemptAtPercent !== undefined) {
       const value = Number(config.preemptAtPercent)
       if (!Number.isFinite(value) || value < 0 || value > 100) throw new Error('preemptAtPercent must be 0..100')
@@ -549,18 +713,39 @@ export class OpenCodeGoPool extends TypertRemoteService {
       }
       patch.models = [...new Set(config.models.map(id => id.trim()))]
     }
+    for (const field of ['usageBaseUrl', 'modelsBaseUrl']) {
+      if (config[field] !== undefined) {
+        if (typeof config[field] !== 'string') throw new Error(`${field} must be a string`)
+        patch[field] = config[field].trim()
+      }
+    }
+    for (const field of ['usageRefreshMs', 'catalogRefreshMs', 'timeoutMs']) {
+      if (config[field] !== undefined) {
+        const value = Number(config[field])
+        if (!Number.isFinite(value) || value <= 0) throw new Error(`${field} must be positive`)
+        patch[field] = value
+      }
+    }
     if (Object.keys(patch).length === 0) throw new Error('putConfig received no known fields')
-    const effective = { ...this.current(), ...patch }
-    if (effective.modelMode === 'custom' && (!Array.isArray(effective.models) || effective.models.length === 0)) {
+    const effective = { ...this.providerConfig(provider), ...patch }
+    if (effective.modelMode === 'custom' && effective.models.length === 0) {
       throw new Error('custom model selection needs at least one model — pick models or use modelMode "all"')
     }
-    await this.scope.update(patch)
+    await this.updateProvider(provider, patch)
     return true
   }
 
-  async takeOverState() {
-    return this.takeoverState()
+  async takeOverState(provider) {
+    this.assertProvider(provider)
+    return this.takeoverState(provider)
+  }
+
+  async refreshModels(provider) {
+    this.assertProvider(provider)
+    await this.refreshCatalog(provider, true)
+    return true
   }
 }
 
-export default OpenCodeGoPool
+export { AccountPoolAdapter, normalizeConfig, PROVIDER_IDS }
+export default DshAccountPool

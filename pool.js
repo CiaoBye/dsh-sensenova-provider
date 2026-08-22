@@ -1,15 +1,20 @@
 /**
- * KeyPool — pure state machine for the OpenCode Go multi-key pool.
+ * KeyPool — provider-neutral account-pool state machine.
  *
  * Deliberately free of harness imports so it runs under plain Node tests.
  * The owning plugin feeds it configuration, failure classifications, and
  * fresh usage facts; the pool owns selection, rotation, and durability.
  *
- * @module dsh-opencode-go-pool/pool
+ * @module dsh-account-pool/pool
  */
 
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
+import {
+  AUTH_CODE,
+  INVALID_CREDENTIAL_CODE,
+  QUOTA_CODE,
+} from './driver-core.js'
 
 /** Per-key lifecycle states. */
 export const HEALTHY = 'healthy'
@@ -19,9 +24,7 @@ export const INVALID = 'invalid'
 export const KEY_STATES = [HEALTHY, EXHAUSTED, DISABLED, INVALID]
 
 /** Failure codes that rotate the pool (provider-neutral harness codes). */
-export const QUOTA_CODE = 'QUOTA' // == dsh-llm QUOTA_EXCEEDED_CODE
-export const INVALID_CREDENTIAL_CODE = 'INVALID_CREDENTIAL'
-export const AUTH_CODE = 'AUTH'
+export { AUTH_CODE, INVALID_CREDENTIAL_CODE, QUOTA_CODE }
 
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]{0,31}$/
 const ENV_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
@@ -43,7 +46,7 @@ export function assertKeyEntry(entry) {
     throw new Error(`key "${id}" needs a non-empty label`)
   }
   if (typeof apiKeyEnv !== 'string' || !ENV_PATTERN.test(apiKeyEnv)) {
-    throw new Error(`key "${id}" apiKeyEnv must be a credential reference name like OPENCODE_GO_KEY_A`)
+    throw new Error(`key "${id}" apiKeyEnv must be a valid credential reference name`)
   }
 }
 
@@ -160,13 +163,15 @@ export class KeyPool {
     const st = this.states.get(id)
     if (st.state !== HEALTHY) return false
     if (this.preemptAtPercent < 100 && st.usage) {
-      // Preempt on EITHER window: a key whose 5h rolling window OR weekly
-      // window already reached the threshold gets skipped before it fails.
-      for (const window of [st.usage.rolling, st.usage.weekly]) {
-        if (window && typeof window.percent === 'number'
-            && window.percent >= this.preemptAtPercent) {
-          return false
-        }
+      // Drivers may provide a synthetic provider-neutral preempt percentage
+      // (for example OpenRouter remaining credits), or the Go windows below.
+      const percentages = [
+        st.usage.preemptPercent,
+        st.usage.rolling?.percent,
+        st.usage.weekly?.percent,
+      ]
+      if (percentages.some(percent => typeof percent === 'number' && percent >= this.preemptAtPercent)) {
+        return false
       }
     }
     return true
@@ -320,11 +325,11 @@ export class KeyPool {
     if (!this.states.has(id)) return
     const st = this.states.get(id)
     st.usage = usage ?? null
-    if (st.state === EXHAUSTED
-        && usage && usage.rolling
-        && usage.rolling.status === 'ok'
-        && typeof usage.rolling.percent === 'number'
-        && usage.rolling.percent < this.reviveThresholdPercent) {
+    const rollingRevives = usage && usage.rolling
+      && usage.rolling.status === 'ok'
+      && typeof usage.rolling.percent === 'number'
+      && usage.rolling.percent < this.reviveThresholdPercent
+    if (st.state === EXHAUSTED && usage && (usage.revive === true || rollingRevives)) {
       st.state = HEALTHY
       st.lastFailure = null
       if (this.activeId === null) this.activeId = this.pickFirstUsableId()

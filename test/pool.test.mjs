@@ -116,6 +116,35 @@ test('preemptAtPercent skips healthy keys near exhaustion', () => {
   assert.equal(pool.currentKey().id, 'acc-a')
 })
 
+test('credits usage participates in preemption and can revive an exhausted key', () => {
+  const pool = freshPool()
+  pool.setPreempt(80)
+  pool.syncKeys(KEYS)
+  pool.onUsage('acc-a', {
+    kind: 'credits',
+    preemptPercent: 85,
+    revive: true,
+    rolling: null,
+    weekly: null,
+    monthly: null,
+    credits: { limitRemaining: 15 },
+  })
+  assert.equal(pool.currentKey().id, 'acc-b')
+
+  pool.onFailure('acc-b', { code: QUOTA_CODE, message: 'billing limit' })
+  pool.onUsage('acc-b', {
+    kind: 'credits',
+    preemptPercent: 10,
+    revive: true,
+    rolling: null,
+    weekly: null,
+    monthly: null,
+    credits: { limitRemaining: 90 },
+  })
+  assert.equal(pool.stateOf('acc-b').state, 'healthy')
+  assert.equal(pool.currentKey().id, 'acc-c')
+})
+
 test('disable removes a key from selection; enable restores it', () => {
   const pool = freshPool()
   pool.syncKeys(KEYS)
@@ -138,7 +167,7 @@ test('syncKeys keeps surviving state and drops removed ids', () => {
 })
 
 test('state file round-trips across a fresh pool instance', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'dsh-opencode-go-pool-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-account-pool-'))
   const stateFile = join(dir, 'pool.state.json')
   const a = new KeyPool({ stateFile })
   a.syncKeys(KEYS)
@@ -192,7 +221,7 @@ test('a single usable key never rotates to itself on consecutive failures', () =
 })
 
 test('corrupt state file starts fresh', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'dsh-opencode-go-pool-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-account-pool-'))
   const stateFile = join(dir, 'pool.state.json')
   writeFileSync(stateFile, '{not json')
   const pool = new KeyPool({ stateFile })

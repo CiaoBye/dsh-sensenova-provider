@@ -1,94 +1,134 @@
 /**
- * Usage gateway helpers for the official OpenCode Go usage endpoint:
+ * Usage gateways for the account-pool drivers.
  *
- *   GET <baseUrl>            (default https://opencode.ai/zen/go/v1/usage)
- *   Authorization: Bearer <apiKey>
- *
- * Response (undocumented, community-verified):
- *   { "usage": { "rolling": {status, percent, resetsAt},
- *                "weekly":  {status, percent, resetsAt},
- *                "monthly": {status, percent, resetsAt} } }
- *
- * Parsing is defensive: the endpoint is not part of OpenCode's public docs,
- * so any shape drift degrades to a coded error the card renders, never a crash.
- *
- * @module dsh-opencode-go-pool/usage
+ * Go exposes rolling/weekly/monthly windows. OpenRouter exposes account
+ * spending and remaining-limit fields. Zen currently has no public usage
+ * endpoint, so its driver reports usage as unsupported instead of fabricating
+ * quota numbers.
  */
+
+import { USAGE_KINDS } from './driver-core.js'
 
 /** Coded failure for one usage query; `code` is a stable machine key. */
 export class UsageError extends Error {
-  constructor(code, message) {
-    super(message)
+  constructor(code, message, options = {}) {
+    super(message, options)
+    this.name = 'UsageError'
     this.code = code
   }
 }
 
+function finite(value) {
+  const number = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
 function pickWindow(value) {
   if (!value || typeof value !== 'object') return null
-  const percent = typeof value.percent === 'number' ? value.percent : Number(value.percent)
+  const percent = finite(value.percent)
   return {
     status: typeof value.status === 'string' ? value.status : null,
-    percent: Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : null,
+    percent: percent === null ? null : Math.max(0, Math.min(100, percent)),
     resetsAt: typeof value.resetsAt === 'string' ? value.resetsAt : null,
   }
 }
 
-/**
- * Query the usage endpoint once for one key.
- * @param {object} options
- * @param {string} options.baseUrl
- * @param {string} options.apiKey
- * @param {number} [options.timeoutMs]
- * @param {Function} [options.fetchImpl] - injectable fetch for tests.
- * @returns {Promise<{rolling: object|null, weekly: object|null, monthly: object|null}>}
- * @throws {UsageError} with codes: network | unauthorized | http-<status> | bad-json
- */
-export async function fetchUsage({ baseUrl, apiKey, timeoutMs = 15000, fetchImpl }) {
+function numberField(value) {
+  return finite(value)
+}
+
+async function requestJson({ url, apiKey, timeoutMs = 15000, fetchImpl }) {
   const impl = fetchImpl ?? globalThis.fetch
+  if (typeof impl !== 'function') throw new UsageError('network', 'fetch is not available')
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
-  let res
+  let response
   try {
-    res = await impl(baseUrl, {
-      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+    response = await impl(url, {
+      headers: {
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+        Accept: 'application/json',
+      },
       signal: controller.signal,
     })
-  } catch {
-    throw new UsageError('network', `usage request failed: ${baseUrl}`)
+  } catch (error) {
+    throw new UsageError('network', `usage request failed: ${url}`, { cause: error })
   } finally {
     clearTimeout(timer)
   }
-  if (res.status === 401) {
+  if (response.status === 401) {
     throw new UsageError('unauthorized', 'usage endpoint rejected the key (401)')
   }
-  if (!res.ok) {
-    throw new UsageError(`http-${res.status}`, `usage endpoint answered HTTP ${res.status}`)
+  if (!response.ok) {
+    throw new UsageError(`http-${response.status}`, `usage endpoint answered HTTP ${response.status}`)
   }
-  let body
   try {
-    body = await res.json()
-  } catch {
-    throw new UsageError('bad-json', 'usage endpoint answered with non-JSON')
-  }
-  const usage = body && typeof body === 'object' && body.usage ? body.usage : body
-  return {
-    rolling: pickWindow(usage && usage.rolling),
-    weekly: pickWindow(usage && usage.weekly),
-    monthly: pickWindow(usage && usage.monthly),
+    return await response.json()
+  } catch (error) {
+    throw new UsageError('bad-json', 'usage endpoint answered with non-JSON', { cause: error })
   }
 }
 
 /**
- * Small TTL cache with in-flight dedupe: the client card polls every 30s,
- * several keys query in parallel, and concurrent pollers share one request
- * per key instead of stampeding the endpoint.
+ * Query the OpenCode Go usage endpoint once for one key.
+ * @returns {Promise<{kind: 'windows', rolling: object|null, weekly: object|null, monthly: object|null, credits: null}>}
  */
+export async function fetchUsage({ baseUrl, apiKey, timeoutMs = 15000, fetchImpl }) {
+  const body = await requestJson({ url: baseUrl, apiKey, timeoutMs, fetchImpl })
+  const usage = body && typeof body === 'object' && body.usage ? body.usage : body
+  const rolling = pickWindow(usage && usage.rolling)
+  const weekly = pickWindow(usage && usage.weekly)
+  const monthly = pickWindow(usage && usage.monthly)
+  return {
+    kind: USAGE_KINDS.WINDOWS,
+    preemptPercent: rolling?.percent ?? null,
+    revive: rolling?.status === 'ok' && typeof rolling.percent === 'number' && rolling.percent < 98,
+    rolling,
+    weekly,
+    monthly,
+    credits: null,
+  }
+}
+
+/** Query OpenRouter's current-key endpoint. */
+export async function fetchOpenRouterUsage({ baseUrl, apiKey, timeoutMs = 15000, fetchImpl }) {
+  const body = await requestJson({ url: baseUrl, apiKey, timeoutMs, fetchImpl })
+  const data = body && typeof body === 'object' && body.data ? body.data : body
+  const credits = data && typeof data === 'object' ? {
+    usage: numberField(data.usage),
+    usageDaily: numberField(data.usage_daily),
+    usageWeekly: numberField(data.usage_weekly),
+    usageMonthly: numberField(data.usage_monthly),
+    limit: numberField(data.limit),
+    limitRemaining: numberField(data.limit_remaining),
+    limitReset: typeof data.limit_reset === 'string' ? data.limit_reset : null,
+    expiresAt: typeof data.expires_at === 'string' ? data.expires_at : null,
+  } : {
+    usage: null,
+    usageDaily: null,
+    usageWeekly: null,
+    usageMonthly: null,
+    limit: null,
+    limitRemaining: null,
+    limitReset: null,
+    expiresAt: null,
+  }
+  const preemptPercent = credits.limit && credits.limit > 0 && credits.limitRemaining !== null
+    ? Math.max(0, Math.min(100, ((credits.limit - credits.limitRemaining) / credits.limit) * 100))
+    : null
+  return {
+    kind: USAGE_KINDS.CREDITS,
+    preemptPercent,
+    revive: credits.limitRemaining !== null && credits.limitRemaining > 0,
+    rolling: null,
+    weekly: null,
+    monthly: null,
+    credits,
+  }
+}
+
+/** Small TTL cache with in-flight dedupe. */
 export class UsageCache {
-  /**
-   * @param {object} [options]
-   * @param {number} [options.ttlMs] - freshness window for successful values (default 15000).
-   * @param {() => number} [options.now] - clock injection for tests.
-   */
   constructor({ ttlMs = 15000, now = () => Date.now() } = {}) {
     this.ttlMs = ttlMs
     this.now = now
@@ -96,11 +136,6 @@ export class UsageCache {
     this.inflight = new Map()
   }
 
-  /**
-   * @param {string} key - cache key (pool key id).
-   * @param {() => Promise<any>} fetcher - runs only on a miss; failures are never cached.
-   * @returns {Promise<any>} fresh or cached value.
-   */
   async get(key, fetcher) {
     const hit = this.entries.get(key)
     if (hit && this.now() - hit.at < this.ttlMs) return hit.value

@@ -1,7 +1,7 @@
 {
-  "name": "dsh-opencode-go-pool",
-  "version": "0.1.7",
-  "description": "DeepSeek Harness plugin: multi-key pool with automatic quota failover and a usage dashboard for the OpenCode Go plan",
+  "name": "dsh-account-pool",
+  "version": "0.2.0",
+  "description": "DeepSeek Harness plugin: provider-aware account pools for OpenCode Go, OpenCode Zen, and OpenRouter",
   "license": "MIT",
   "keywords": [
     "deepseek-harness",
@@ -9,6 +9,7 @@
     "plugin",
     "opencode",
     "opencode-go",
+    "openrouter",
     "quota",
     "usage",
     "failover",
@@ -22,6 +23,9 @@
   "files": [
     "index.js",
     "pool.js",
+    "driver-core.js",
+    "drivers.js",
+    "catalog.js",
     "usage.js",
     "typert.host.js",
     "client.js",
@@ -32,6 +36,8 @@
     ".": "./index.js",
     "./client": "./client.js",
     "./typert": "./typert.host.js",
+    "./drivers": "./drivers.js",
+    "./catalog": "./catalog.js",
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -47,6 +53,9 @@
   },
   "dependencies": {
     "zod": "^4.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
   },
   "peerDependencies": {
     "react": "^18.0.0",

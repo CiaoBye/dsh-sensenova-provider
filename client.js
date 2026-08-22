@@ -1,36 +1,45 @@
-// Client half of dsh-opencode-go-pool.
+// Client half of dsh-account-pool.
 // Hand-written browser bundle in the lazy-CJS format the client module loader
 // expects: it only REGISTERS the factory; the body runs at materialization.
-// It mounts the opencodePool Remote, registers a settings.section sidebar
-// entry ("OpenCode Go 套餐池"), and renders the usage dashboard: one card per
-// key with 5h-rolling / weekly / monthly usage bars, plus switch / disable /
-// clear actions and an inline key editor that writes through putKeys.
+// It mounts the accountPool Remote, registers one settings.section sidebar
+// entry, and renders a provider-aware usage dashboard for the three supported
+// routes. Each provider owns an independent key list and failover state.
 
 window.__ModuleLoader__.load({
-  id: 'dsh-opencode-go-pool',
+  id: 'dsh-account-pool',
   factory: (require) => {
     var module = { exports: {} };
     var exports = module.exports;
     Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
     const React = require('react');
 
-    const NS = 'settings.opencodeGoPool';
+    const NS = 'settings.accountPool';
     const inject = ['slots', 'locale', 'remote'];
+    const PROVIDER_IDS = ['opencode-go', 'opencode', 'openrouter'];
 
     const zh = {
-      nav: 'OpenCode Go 套餐池',
-      title: 'OpenCode Go 套餐池',
-      subtitle: '多 Key 池 · 额度耗尽自动切换',
+      nav: '多 Provider 账号池',
+      title: '多 Provider 账号池',
+      subtitle: 'OpenCode Go · OpenCode Zen · OpenRouter 独立 Key 池与自动切换',
+      providerOpenCodeGo: 'OpenCode Go',
+      providerOpenCode: 'OpenCode Zen',
+      providerOpenRouter: 'OpenRouter',
+      providerGoHint: '5 小时 / 每周 / 每月窗口额度',
+      providerZenHint: '官方模型目录 · 当前无公开用量接口',
+      providerRouterHint: '账户余额 / 限额与模型目录',
       loading: '查询中…',
       loadFailed: '加载失败',
       paused: '连续失败，已暂停自动刷新',
       refresh: '刷新',
-      takeoverServing: '服务中 · 路由 opencode-go 已接管',
-      takeoverOwnRoute: '自有路由模式 · opencode-go-pool',
+      refreshModels: '刷新模型目录',
+      takeoverServing: '服务中 · 路由 {route} 已接管',
+      takeoverOwnRoute: '自有路由模式 · {route}',
       takeoverWaiting: '等待接管',
-      takeoverWaitingHint: 'opencode-go 路由当前由其他插件持有。请在「设置 → 模型」中删除 opencode-go 供应商行，本插件会自动接管，历史会话无需任何改动。',
+      takeoverWaitingHint: '{route} 路由当前由其他插件持有。释放该供应商路由后，本插件会自动接管，历史会话无需任何改动。',
+      takeoverDisabled: 'Provider 池已停用',
+      takeoverDisabledHint: '该 Provider 未启用接管；开启 enabled / takeover 后才会注册路由。',
       noKeysTitle: '尚未配置 Key',
-      noKeysHint: '每个 Key 对应一个 OpenCode Go 账号。在下方「Key 管理」中添加，Key 值请通过凭据填写（设置 → 模型 的凭据页，或 ~/.dsh/.credentials.yaml / 环境变量）。',
+      noKeysHint: '每个 Key 对应一个供应商账号。在下方「Key 管理」中添加，Key 值请通过凭据填写（设置 → 模型的凭据页，或 ~/.dsh/.credentials.yaml / 环境变量）。',
       activeBadge: '使用中',
       idleBadge: '空闲',
       exhaustedBadge: '额度耗尽',
@@ -39,6 +48,9 @@ window.__ModuleLoader__.load({
       rolling: '5 小时滚动',
       weekly: '每周',
       monthly: '每月',
+      credits: '账户额度',
+      creditsDetail: '已用 {used} · 剩余 {left}',
+      usageUnsupported: '该供应商当前没有公开用量接口，仅在请求失败时切换 Key。',
       used: '已用',
       left: '剩余',
       resetsIn: '重置',
@@ -67,18 +79,19 @@ window.__ModuleLoader__.load({
       saved: '已保存',
       saveFailed: '保存失败',
       labelPlaceholder: '显示名，如 主号',
-      envPlaceholder: '引用名，留空自动生成（如 OPENCODE_GO_KEY_A）',
-      secretPlaceholder: '粘贴 sk-... 密钥（留空则不修改）',
+      envPlaceholder: '引用名，留空自动生成（如 PROVIDER_KEY_A）',
+      secretPlaceholder: '粘贴 API Key（留空则不修改）',
       envInvalidHint: '引用名不是密钥！密钥请粘贴到第三个「密钥」栏；引用名留空即可自动生成',
       strategyTitle: '切号策略',
-      strategyHint: '避让：5 小时滚动窗口或每周窗口任一达到阈值即提前切走（100=仅失败时切）；连败：模型调用失败累计 N 次切号（0=关闭）。额度耗尽或凭据失效始终立即切换。',
-      preemptLead: '5h/每周用量达到',
+      strategyHint: '避让：窗口用量或账户余额达到阈值即提前切走（100=仅失败时切）；连败：模型调用失败累计 N 次切号（0=关闭）。额度耗尽或凭据失效始终立即切换。',
+      preemptLead: '用量/余额达到',
       preemptUnit: '% 自动避让',
+      preemptUnsupported: '该 Provider 暂不支持用量预切换',
       consecLead: '连续失败',
       consecUnit: '次切号',
       refreshing: '刷新中…',
       updatedAt: '数据更新于',
-      preemptLabel: '5 小时用量达到 % 自动切号（100=仅失败时切）',
+      preemptLabel: '用量达到 % 自动切号（100=仅失败时切）',
       consecLabel: '连续失败次数达到后自动切号（0=关闭）',
       consecNote: '连败切号',
       existingRowTag: '已有',
@@ -101,22 +114,32 @@ window.__ModuleLoader__.load({
       modelCount: '已启用 {n} 个模型',
       modelNone: '未选择任何模型：该供应商暂时不可用',
       modelUnavailable: '模型目录暂不可用，稍后刷新重试',
+      catalogError: '模型目录刷新失败',
       modelEmptyHint: '自定义选择至少需要勾选一个模型',
     };
     const en = {
-      nav: 'OpenCode Go Pool',
-      title: 'OpenCode Go Pool',
-      subtitle: 'Multi-key pool · automatic quota failover',
+      nav: 'Multi-provider account pool',
+      title: 'Multi-provider account pool',
+      subtitle: 'Independent key pools and automatic failover for OpenCode Go, Zen, and OpenRouter',
+      providerOpenCodeGo: 'OpenCode Go',
+      providerOpenCode: 'OpenCode Zen',
+      providerOpenRouter: 'OpenRouter',
+      providerGoHint: '5h / weekly / monthly usage windows',
+      providerZenHint: 'official model catalog · usage endpoint unavailable',
+      providerRouterHint: 'account credits / limits and model catalog',
       loading: 'Loading…',
       loadFailed: 'Failed to load',
       paused: 'repeated failures, auto-refresh paused',
       refresh: 'Refresh',
-      takeoverServing: 'Serving · opencode-go route taken over',
-      takeoverOwnRoute: 'Own route mode · opencode-go-pool',
+      refreshModels: 'Refresh models',
+      takeoverServing: 'Serving · {route} route taken over',
+      takeoverOwnRoute: 'Own route mode · {route}',
       takeoverWaiting: 'Waiting for takeover',
-      takeoverWaitingHint: 'The opencode-go route is currently owned by another plugin. Remove the opencode-go row under Settings → Models and this plugin takes over automatically — existing conversations keep working unchanged.',
+      takeoverWaitingHint: 'The {route} route is currently owned by another plugin. Release that provider route and this plugin takes over automatically — existing conversations keep working unchanged.',
+      takeoverDisabled: 'Provider pool disabled',
+      takeoverDisabledHint: 'This Provider is not enabled for takeover. Enable enabled / takeover before it can register its route.',
       noKeysTitle: 'No keys configured',
-      noKeysHint: 'Each key is one OpenCode Go account. Add keys under “Key management” below; paste the literal key into the credentials page (Settings → Models, or ~/.dsh/.credentials.yaml / environment variables).',
+      noKeysHint: 'Each key is one provider account. Add keys under “Key management” below; paste the literal key into the credentials page (Settings → Models, or ~/.dsh/.credentials.yaml / environment variables).',
       activeBadge: 'in use',
       idleBadge: 'idle',
       exhaustedBadge: 'quota exhausted',
@@ -125,6 +148,9 @@ window.__ModuleLoader__.load({
       rolling: '5h rolling',
       weekly: 'Weekly',
       monthly: 'Monthly',
+      credits: 'Account credits',
+      creditsDetail: '{used} used · {left} remaining',
+      usageUnsupported: 'This provider has no public usage endpoint yet; failover happens on request failures.',
       used: 'used',
       left: 'left',
       resetsIn: 'resets',
@@ -153,18 +179,19 @@ window.__ModuleLoader__.load({
       saved: 'Saved',
       saveFailed: 'Save failed',
       labelPlaceholder: 'display name, e.g. main',
-      envPlaceholder: 'ref name, auto when empty (e.g. OPENCODE_GO_KEY_A)',
-      secretPlaceholder: 'paste the sk-... secret (empty = keep)',
+      envPlaceholder: 'ref name, auto when empty (e.g. PROVIDER_KEY_A)',
+      secretPlaceholder: 'paste the API key (empty = keep)',
       envInvalidHint: 'the ref name is not the secret! Paste the secret into the third field, or leave the ref name empty to auto-generate',
       strategyTitle: 'Switching strategy',
-      strategyHint: 'Avoid: switch ahead once the 5h rolling OR weekly window reaches the threshold (100=fail-only). Consecutive: switch after N accumulated call failures (0=off). Quota exhaustion or an invalid credential always switches immediately.',
+      strategyHint: 'Avoid: switch ahead once usage or account balance reaches the threshold (100=fail-only). Consecutive: switch after N accumulated call failures (0=off). Quota exhaustion or an invalid credential always switches immediately.',
       preemptLead: 'Auto-avoid at',
-      preemptUnit: '% 5h/weekly usage',
+      preemptUnit: '% usage / balance',
+      preemptUnsupported: 'Usage preemption is unavailable for this provider',
       consecLead: 'switch after',
       consecUnit: 'consecutive failures',
       refreshing: 'Refreshing…',
       updatedAt: 'updated',
-      preemptLabel: 'Auto-switch at 5h usage % (100=fail-only)',
+      preemptLabel: 'Auto-switch at usage % (100=fail-only)',
       consecLabel: 'Switch after N consecutive failures (0=off)',
       consecNote: 'consec. failures',
       existingRowTag: 'existing',
@@ -187,6 +214,7 @@ window.__ModuleLoader__.load({
       modelCount: '{n} models enabled',
       modelNone: 'No model selected: the provider is temporarily unusable',
       modelUnavailable: 'Model catalog unavailable — try refreshing later',
+      catalogError: 'Model catalog refresh failed',
       modelEmptyHint: 'Custom selection needs at least one model',
     };
 
@@ -199,9 +227,9 @@ window.__ModuleLoader__.load({
     // binder rejects src-json results at mount time ("has no strict codec").
     const strict = () => ({ mode: 'strict', typeSymbol: 'json', schema: passthrough() });
     const DESCRIPTOR = (method, parameters) => ({
-      id: `dsh-opencode-go-pool#opencodePool/${method}`,
-      service: 'opencodePool',
-      namespace: 'opencodePool',
+      id: `dsh-account-pool#accountPool/${method}`,
+      service: 'accountPool',
+      namespace: 'accountPool',
       method,
       invocation: { kind: 'direct' },
       parameters: parameters.map(p => ({ name: p, wire: p, source: 'json', codec: { mode: 'strict', typeSymbol: 'json', schema: passthrough() } })),
@@ -209,21 +237,46 @@ window.__ModuleLoader__.load({
     });
 
     const TYPERT_REMOTE = {
-      package: 'dsh-opencode-go-pool',
+      package: 'dsh-account-pool',
       descriptors: [
         DESCRIPTOR('status', []),
-        DESCRIPTOR('setActive', ['id']),
-        DESCRIPTOR('setDisabled', ['id', 'on']),
-        DESCRIPTOR('clearInvalid', ['id']),
-        DESCRIPTOR('putKeys', ['keys']),
-        DESCRIPTOR('putKeySecret', ['id', 'secret']),
-        DESCRIPTOR('putConfig', ['config']),
-        DESCRIPTOR('takeOverState', []),
+        DESCRIPTOR('setActive', ['provider', 'id']),
+        DESCRIPTOR('setDisabled', ['provider', 'id', 'on']),
+        DESCRIPTOR('clearInvalid', ['provider', 'id']),
+        DESCRIPTOR('putKeys', ['provider', 'keys']),
+        DESCRIPTOR('putKeySecret', ['provider', 'id', 'secret']),
+        DESCRIPTOR('putConfig', ['provider', 'config']),
+        DESCRIPTOR('takeOverState', ['provider']),
+        DESCRIPTOR('refreshModels', ['provider']),
       ],
     };
 
+    const PROVIDER_META = Object.freeze({
+      'opencode-go': { labelKey: 'providerOpenCodeGo', hintKey: 'providerGoHint', envPrefix: 'OPENCODE_GO_KEY_' },
+      opencode: { labelKey: 'providerOpenCode', hintKey: 'providerZenHint', envPrefix: 'OPENCODE_ZEN_KEY_' },
+      openrouter: { labelKey: 'providerOpenRouter', hintKey: 'providerRouterHint', envPrefix: 'OPENROUTER_KEY_' },
+    });
+
+    function providerLabel(provider, t) {
+      const meta = PROVIDER_META[provider];
+      return meta ? t(meta.labelKey) : provider;
+    }
+
+    function providerHint(provider, t) {
+      const meta = PROVIDER_META[provider];
+      return meta ? t(meta.hintKey) : '';
+    }
+
+    function providerEnvPrefix(provider) {
+      return PROVIDER_META[provider]?.envPrefix || 'ACCOUNT_POOL_KEY_';
+    }
+
     const styles = {
       wrap: { maxWidth: 760, display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' },
+      providerTabs: { display: 'flex', gap: 8, flexWrap: 'wrap', borderBottom: '1px solid var(--dsw-alias-border-l2)', paddingBottom: 8 },
+      providerTab: { flex: '1 1 150px', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3, border: '1px solid var(--dsw-alias-border-l2)', color: 'var(--dsw-alias-label-secondary)', font: 'inherit', cursor: 'pointer', background: 'transparent', borderRadius: 8, padding: '8px 10px', textAlign: 'left' },
+      providerTabActive: { borderColor: 'var(--dsw-alias-state-business-primary)', color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-layer-3)' },
+      providerHint: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', lineHeight: 1.35 },
       title: { fontSize: 16, fontWeight: 600, margin: 0 },
       subtitle: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, margin: '2px 0 0' },
       hint: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 13, lineHeight: 1.6, margin: 0 },
@@ -339,8 +392,32 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function CreditUsage(props) {
+      const { usage, t, tick } = props;
+      const credits = usage && usage.credits ? usage.credits : {};
+      const remaining = typeof credits.limitRemaining === 'number'
+        ? credits.limitRemaining.toFixed(2)
+        : t('unknown');
+      const spent = typeof credits.usage === 'number'
+        ? credits.usage.toFixed(2)
+        : t('unknown');
+      return React.createElement(React.Fragment, null,
+        React.createElement(UsageBar, {
+          name: t('credits'),
+          windowData: {
+            percent: typeof usage.preemptPercent === 'number' ? usage.preemptPercent : null,
+            resetsAt: credits.limitReset,
+          },
+          t, tick,
+        }),
+        React.createElement('p', { style: styles.cardMeta },
+          t('creditsDetail').replace('{used}', spent).replace('{left}', remaining)),
+      );
+    }
+
     function usageErrorText(code, t) {
       if (code === 'no-api-key') return t('noApiKey');
+      if (code === 'unsupported') return t('usageUnsupported');
       if (code === 'unauthorized') return t('unauthorized');
       if (code === 'network') return t('network');
       if (code === 'bad-json') return t('badJson');
@@ -363,6 +440,10 @@ window.__ModuleLoader__.load({
         ),
         item.usageError
           ? React.createElement('p', { style: styles.error }, usageErrorText(item.usageError, t))
+          : item.usage && item.usage.kind === 'unsupported'
+            ? React.createElement('p', { style: styles.hint }, t('usageUnsupported'))
+            : item.usage && item.usage.kind === 'credits'
+              ? React.createElement(CreditUsage, { usage: item.usage, t, tick })
           : React.createElement(React.Fragment, null,
             React.createElement(UsageBar, { name: t('rolling'), windowData: usage.rolling, t, tick }),
             React.createElement(UsageBar, { name: t('weekly'), windowData: usage.weekly, t, tick }),
@@ -500,6 +581,7 @@ window.__ModuleLoader__.load({
     /** Switching-strategy form: the two configurable auto-switch rules. */
     function StrategyCard(props) {
       const { t, data, strategy, setStrategy, busy, onSave } = props;
+      const preemptDisabled = data.canPreemptByUsage === false;
       const value = strategy !== null
         ? strategy
         : { preempt: String(data.preemptAtPercent ?? 100), consec: String(data.switchAfterConsecutiveFailures ?? 0) };
@@ -528,7 +610,7 @@ window.__ModuleLoader__.load({
           React.createElement('input', {
             style: { ...styles.input, ...smallInput },
             value: value.preempt,
-            disabled: busy !== null,
+            disabled: busy !== null || preemptDisabled,
             onChange: event => update('preempt', event.target.value),
           }),
           React.createElement('span', null, t('preemptUnit')),
@@ -540,6 +622,9 @@ window.__ModuleLoader__.load({
             onChange: event => update('consec', event.target.value),
           }),
           React.createElement('span', null, t('consecUnit')),
+          preemptDisabled
+            ? React.createElement('span', { style: styles.cardMeta }, t('preemptUnsupported'))
+            : null,
           React.createElement('button', {
             style: { ...styles.button, ...styles.buttonPrimary, ...(busy !== null ? styles.buttonDisabled : {}) },
             disabled: busy !== null,
@@ -585,6 +670,9 @@ window.__ModuleLoader__.load({
           React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-secondary)', borderColor: 'var(--dsw-alias-border-l2)' } },
             t('modelCount').replace('{n}', String(enabledCount))),
         ),
+        data && data.catalogError
+          ? React.createElement('p', { style: styles.error }, `${t('catalogError')}: ${data.catalogError}`)
+          : null,
         available.length === 0
           ? React.createElement('p', { style: styles.hint }, t('modelUnavailable'))
           : React.createElement(React.Fragment, null,
@@ -640,7 +728,8 @@ window.__ModuleLoader__.load({
 
     function PoolPage(props) {
       const { t, api } = props;
-      const [data, setData] = React.useState(null);
+      const [rootData, setRootData] = React.useState(null);
+      const [providerId, setProviderId] = React.useState('opencode-go');
       const [error, setError] = React.useState(null);
       const [failures, setFailures] = React.useState(0);
       const [pollMs, setPollMs] = React.useState(30000);
@@ -653,18 +742,36 @@ window.__ModuleLoader__.load({
       const [refreshing, setRefreshing] = React.useState(false);
       const [loadedAt, setLoadedAt] = React.useState(null);
 
+      const providers = Array.isArray(rootData && rootData.providers) ? rootData.providers : [];
+      const selected = providers.find(item => item.id === providerId) || providers[0] || null;
+      const selectedId = selected ? selected.id : providerId;
+      const data = selected;
+
+      React.useEffect(() => {
+        if (selected && selected.id !== providerId) setProviderId(selected.id);
+      }, [selected, providerId]);
+      React.useEffect(() => {
+        setDraft(null);
+        setStrategy(null);
+        setModelSel(null);
+        setNotice(null);
+      }, [selectedId]);
+
       const load = React.useCallback(async () => {
         setRefreshing(true);
         try {
           const remote = await api();
-          if (!remote) throw new Error('opencodePool remote is unavailable');
+          if (!remote) throw new Error('accountPool remote is unavailable');
           const result = unwrapRemote(await remote.status());
-          setData(result);
+          setRootData(result);
           setError(null);
           setFailures(0);
           setLoadedAt(new Date());
-          if (result && typeof result.usageRefreshMs === 'number' && result.usageRefreshMs > 0) {
-            setPollMs(result.usageRefreshMs);
+          const refreshes = Array.isArray(result && result.providers)
+            ? result.providers.map(item => item.usageRefreshMs).filter(value => typeof value === 'number' && value > 0)
+            : [];
+          if (refreshes.length > 0) {
+            setPollMs(Math.min(...refreshes));
           }
         } catch (err) {
           setFailures(prev => prev + 1);
@@ -691,11 +798,13 @@ window.__ModuleLoader__.load({
         setNotice(null);
         try {
           const remote = await api();
-          if (!remote) throw new Error('opencodePool remote is unavailable');
+          if (!remote) throw new Error('accountPool remote is unavailable');
           await unwrapRemote(await fn(remote));
           await load();
+          return true;
         } catch (err) {
           setNotice({ ok: false, text: `${t('actionFailed')}: ${String((err && err.message) || err)}` });
+          return false;
         } finally {
           setBusy(null);
         }
@@ -703,9 +812,9 @@ window.__ModuleLoader__.load({
 
       const onKeyAction = (kind, id, confirmText, extra) => {
         runAction(async remote => {
-          if (kind === 'setActive') return remote.setActive(id);
-          if (kind === 'setDisabled') return remote.setDisabled(id, extra !== false);
-          return remote.clearInvalid(id);
+          if (kind === 'setActive') return remote.setActive(selectedId, id);
+          if (kind === 'setDisabled') return remote.setDisabled(selectedId, id, extra !== false);
+          return remote.clearInvalid(selectedId, id);
         }, confirmText);
       };
 
@@ -720,35 +829,44 @@ window.__ModuleLoader__.load({
           const keys = rows.map(row => ({
             id: row.id,
             label: row.label,
-            apiKeyEnv: row.apiKeyEnv || 'OPENCODE_GO_KEY_' + row.id.replace(/[^A-Za-z0-9_]/g, '_').toUpperCase(),
+            apiKeyEnv: row.apiKeyEnv || providerEnvPrefix(selectedId) + row.id.replace(/[^A-Za-z0-9_]/g, '_').toUpperCase(),
           }));
-          let result = await remote.putKeys(keys);
+          let result = await remote.putKeys(selectedId, keys);
           if (result && result.ok === false) return result; // keep the draft on refusal
           for (const row of rows) {
             if (!row.secret) continue;
-            result = await remote.putKeySecret(row.id, row.secret);
+            result = await remote.putKeySecret(selectedId, row.id, row.secret);
             if (result && result.ok === false) return result;
           }
-          setDraft(null);
           return result;
         }, null)
-          .then(() => setNotice(prev => prev && !prev.ok ? prev : { ok: true, text: t('saved') }));
+          .then(ok => {
+            if (!ok) return;
+            setDraft(null);
+            setNotice(prev => prev && !prev.ok ? prev : { ok: true, text: t('saved') });
+          });
       };
 
       const onSetStrategy = (patch) => {
-        runAction(async remote => remote.putConfig(patch), null)
-          .then(() => {
+        runAction(async remote => remote.putConfig(selectedId, patch), null)
+          .then(ok => {
+            if (!ok) return;
             setStrategy(null); // re-derive the form from the server values
             setNotice(prev => prev && !prev.ok ? prev : { ok: true, text: t('saved') });
           });
       };
 
       const onSetModels = (patch) => {
-        runAction(async remote => remote.putConfig(patch), null)
-          .then(() => {
+        runAction(async remote => remote.putConfig(selectedId, patch), null)
+          .then(ok => {
+            if (!ok) return;
             setModelSel(null); // re-derive the checkboxes from the server values
             setNotice(prev => prev && !prev.ok ? prev : { ok: true, text: t('saved') });
           });
+      };
+
+      const onRefreshModels = () => {
+        runAction(async remote => remote.refreshModels(selectedId), null);
       };
 
       const takeover = data ? data.takeover : null;
@@ -763,6 +881,22 @@ window.__ModuleLoader__.load({
             React.createElement('h2', { style: styles.title }, t('title')),
             React.createElement('p', { style: styles.subtitle }, t('subtitle')),
           ),
+        ),
+        React.createElement('div', { style: styles.providerTabs, role: 'tablist' },
+          PROVIDER_IDS.map(id => React.createElement('button', {
+            key: id,
+            type: 'button',
+            role: 'tab',
+            'aria-selected': selectedId === id,
+            style: {
+              ...styles.providerTab,
+              ...(selectedId === id ? styles.providerTabActive : {}),
+            },
+            onClick: () => setProviderId(id),
+          },
+            React.createElement('span', { style: { fontWeight: 600 } }, providerLabel(id, t)),
+            React.createElement('span', { style: styles.providerHint }, providerHint(id, t)),
+          )),
         ),
         data === null && !error
           ? React.createElement('p', { style: styles.hint }, t('loading'))
@@ -779,10 +913,15 @@ window.__ModuleLoader__.load({
           : React.createElement(React.Fragment, null,
             React.createElement('div', { style: { ...styles.banner, ...(takeover === 'waiting' ? styles.bannerWarn : styles.bannerOk) } },
               React.createElement('p', { style: { margin: 0, fontWeight: 600 } },
-                takeover === 'serving' ? t('takeoverServing')
-                  : takeover === 'own-route' ? t('takeoverOwnRoute') : t('takeoverWaiting')),
+                (takeover === 'serving' ? t('takeoverServing')
+                  : takeover === 'own-route' ? t('takeoverOwnRoute')
+                    : takeover === 'disabled' ? t('takeoverDisabled')
+                      : t('takeoverWaiting')).replace('{route}', data.route || selectedId)),
               takeover === 'waiting'
-                ? React.createElement('p', { style: styles.hint }, data.takeoverHint ? `${t('takeoverWaitingHint')} ${data.takeoverHint}` : t('takeoverWaitingHint'))
+                ? React.createElement('p', { style: styles.hint }, `${t('takeoverWaitingHint').replace('{route}', data.route || selectedId)}${data.takeoverHint ? ` ${data.takeoverHint}` : ''}`)
+                : null,
+              takeover === 'disabled'
+                ? React.createElement('p', { style: styles.hint }, t('takeoverDisabledHint'))
                 : null,
               data.activeId
                 ? React.createElement('p', { style: styles.hint },
@@ -840,6 +979,7 @@ window.__ModuleLoader__.load({
             React.createElement('div', { style: styles.actions },
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
                 React.createElement('button', { style: styles.button, disabled: busy !== null || refreshing, onClick: load }, refreshing ? t('refreshing') : t('refresh')),
+                React.createElement('button', { style: styles.button, disabled: busy !== null || refreshing, onClick: onRefreshModels }, t('refreshModels')),
                 loadedAt
                   ? React.createElement('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)' } }, `${t('updatedAt')} ${loadedAt.toLocaleTimeString()}`)
                   : null,
@@ -869,30 +1009,30 @@ window.__ModuleLoader__.load({
 
     function navLabel(t) {
       return React.createElement(React.Fragment, null,
-        React.createElement(SparkleNavMark, { className: 'dsh-ogp-nav-mark' }),
+        React.createElement(SparkleNavMark, { className: 'dsh-ap-nav-mark' }),
         React.createElement('span', null, t('nav')),
       );
     }
 
     function injectNavStyle() {
       if (typeof document === 'undefined') return;
-      if (document.getElementById('dsh-ogp-nav-style')) return;
+      if (document.getElementById('dsh-ap-nav-style')) return;
       const style = document.createElement('style');
-      style.id = 'dsh-ogp-nav-style';
+      style.id = 'dsh-ap-nav-style';
       // Hide the shell's default gear icon on our nav row only.
-      style.textContent = 'button:has(.dsh-ogp-nav-mark) > svg { display: none; }';
+      style.textContent = 'button:has(.dsh-ap-nav-mark) > svg { display: none; }';
       document.head.appendChild(style);
     }
 
     function apply(ctx) {
       const mountReady = ctx.remote.$mount(TYPERT_REMOTE);
-      ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-opencode-go-pool: dictionaries');
+      ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-account-pool: dictionaries');
       const t = ctx.locale.bind(NS);
       injectNavStyle();
 
       const api = async () => {
         await mountReady;
-        const remote = ctx.get('remote.opencodePool');
+        const remote = ctx.get('remote.accountPool');
         return remote || null;
       };
       const injected = () => ({ t, api });
@@ -921,7 +1061,7 @@ window.__ModuleLoader__.load({
                 wordBreak: 'break-all',
               },
             },
-              React.createElement('p', { style: { margin: 0, fontWeight: 600 } }, 'OpenCode Go 套餐池 · 渲染异常'),
+              React.createElement('p', { style: { margin: 0, fontWeight: 600 } }, '多 Provider 账号池 · 渲染异常'),
               React.createElement('p', { style: { margin: '8px 0 0' } }, String((err && err.message) || err)),
               React.createElement('p', { style: { margin: '8px 0 0', opacity: 0.75 } }, String((err && err.stack) || '').slice(0, 1200)),
             );
@@ -932,7 +1072,7 @@ window.__ModuleLoader__.load({
 
       ctx.slots.inject('settings.section', () => ctx.slots.register({
         name: 'settings.section',
-        id: 'opencode-go-pool',
+        id: 'account-pool',
         order: 41,
         label: () => {
           try {
@@ -951,7 +1091,11 @@ window.__ModuleLoader__.load({
     exports.apply = apply;
     exports.inject = inject;
     // Render-path test hooks (unused by the runtime; see test/client.test.mjs).
-    exports.__test = { KeyCard, UsageBar, badgeFor, fmtReset, usageErrorText, PoolPage, ModelCard, GoMark, TYPERT_REMOTE, unwrapRemote };
+    exports.__test = {
+      KeyCard, UsageBar, CreditUsage, badgeFor, fmtReset, usageErrorText,
+      PoolPage, ModelCard, GoMark, TYPERT_REMOTE, unwrapRemote,
+      providerLabel, providerHint, providerEnvPrefix,
+    };
     return module.exports;
   }
 });

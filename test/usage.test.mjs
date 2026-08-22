@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { fetchUsage, UsageCache, UsageError } from '../usage.js'
+import { fetchOpenRouterUsage, fetchUsage, UsageCache, UsageError } from '../usage.js'
 
 function fakeResponse(status, body, ok) {
   return {
@@ -22,9 +22,34 @@ test('fetchUsage parses the documented three-window shape', async () => {
     },
   })
   const usage = await fetchUsage({ baseUrl: 'https://x/v1/usage', apiKey: 'k', fetchImpl })
+  assert.equal(usage.kind, 'windows')
   assert.equal(usage.rolling.percent, 9)
   assert.equal(usage.weekly.percent, 12)
   assert.equal(usage.monthly.resetsAt, '2026-09-09T00:41:03.810Z')
+})
+
+test('fetchOpenRouterUsage parses the current-key credit and limit shape', async () => {
+  let requested
+  const fetchImpl = async (url, options) => {
+    requested = { url, options }
+    return fakeResponse(200, {
+      data: {
+        usage: 25.5,
+        usage_daily: 3.2,
+        usage_weekly: 13.4,
+        usage_monthly: 25.5,
+        limit: 100,
+        limit_remaining: 74.5,
+        limit_reset: 'monthly',
+        expires_at: '2027-12-31T23:59:59Z',
+      },
+    })
+  }
+  const usage = await fetchOpenRouterUsage({ baseUrl: 'https://openrouter.ai/api/v1/key', apiKey: 'k', fetchImpl })
+  assert.equal(usage.kind, 'credits')
+  assert.equal(usage.credits.limitRemaining, 74.5)
+  assert.equal(usage.credits.usageDaily, 3.2)
+  assert.equal(requested.options.headers.Authorization, 'Bearer k')
 })
 
 test('fetchUsage clamps out-of-range percent and tolerates shape drift', async () => {

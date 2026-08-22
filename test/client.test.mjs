@@ -42,7 +42,7 @@ async function loadClientBundle(t) {
     globalThis.window = previousWindow
   }
   assert.ok(spec, 'bundle registers its factory')
-  assert.equal(spec.id, 'dsh-opencode-go-pool')
+  assert.equal(spec.id, 'dsh-account-pool')
   return spec
 }
 
@@ -74,12 +74,12 @@ test('bundle executes and apply() registers the settings section', async (t) => 
   module.apply(ctx)
 
   assert.equal(registration.name, 'settings.section')
-  assert.equal(registration.id, 'opencode-go-pool')
+  assert.equal(registration.id, 'account-pool')
   assert.equal(registration.order, 41)
   assert.equal(typeof registration.component, 'function')
   // The nav label is a React element: sparkle mark + localized text.
   const labelHtml = renderToString(React.createElement(React.Fragment, null, registration.label()))
-  assert.ok(labelHtml.includes('dsh-ogp-nav-mark'), 'nav label carries the sparkle mark')
+  assert.ok(labelHtml.includes('dsh-ap-nav-mark'), 'nav label carries the sparkle mark')
   assert.ok(labelHtml.includes('nav'), 'nav label carries the localized text')
 })
 
@@ -237,8 +237,8 @@ test('every Remote descriptor carries strict codecs (client binder requirement)'
   const spec = await loadClientBundle(t)
   const module = spec.factory(name => (name === 'react' ? harness.React : (() => { throw new Error(name) })()))
   const { TYPERT_REMOTE } = module.__test
-  assert.equal(TYPERT_REMOTE.package, 'dsh-opencode-go-pool')
-  assert.ok(TYPERT_REMOTE.descriptors.length >= 6)
+  assert.equal(TYPERT_REMOTE.package, 'dsh-account-pool')
+  assert.equal(TYPERT_REMOTE.descriptors.length, 9)
   for (const descriptor of TYPERT_REMOTE.descriptors) {
     assert.equal(descriptor.result.mode, 'strict', `${descriptor.method} result must be strict`)
     assert.equal(typeof descriptor.result.schema.parse, 'function')
