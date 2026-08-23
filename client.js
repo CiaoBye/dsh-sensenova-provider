@@ -18,9 +18,9 @@ window.__ModuleLoader__.load({
     const PROVIDER_IDS = ['opencode-go', 'opencode', 'openrouter'];
 
     const zh = {
-      nav: '多 Provider 账号池',
-      title: '多 Provider 账号池',
-      subtitle: 'OpenCode Go · OpenCode Zen · OpenRouter 独立 Key 池与自动切换',
+      nav: '账号池切换',
+      title: '账号池切换',
+      subtitle: 'OpenCode Go · OpenCode Zen · OpenRouter 账号、模型与自动切换',
       providerOpenCodeGo: 'OpenCode Go',
       providerOpenCode: 'OpenCode Zen',
       providerOpenRouter: 'OpenRouter',
@@ -32,6 +32,29 @@ window.__ModuleLoader__.load({
       paused: '连续失败，已暂停自动刷新',
       refresh: '刷新',
       refreshModels: '刷新模型目录',
+      sectionOverview: '概览',
+      sectionAccounts: '账号与额度',
+      sectionModels: '模型目录',
+      sectionRouting: '路由与切换',
+      overviewTitle: 'Provider 概览',
+      overviewHint: '先确认账号池健康状态，再进入模型目录或路由设置。',
+      accountSummary: '账号状态',
+      accountCount: '{n} 个账号',
+      healthyCount: '{n} 个可用',
+      activeKey: '当前使用',
+      noActiveKey: '暂无当前账号',
+      routeSummary: '路由状态',
+      catalogSummary: '模型目录',
+      modelSummary: '{n} 个模型',
+      configuredSummary: '已配置 {n} 个',
+      recentSwitch: '最近一次切换',
+      noSwitch: '暂无切换记录',
+      openSection: '进入',
+      viewDetails: '查看详情',
+      collapseDetails: '收起详情',
+      routeOwnerHint: '当前路由由其他插件持有。',
+      routeServingHint: '本账号池正在提供该 Provider 路由。',
+      routeDisabledHint: '账号池接管已关闭。',
       takeoverServing: '服务中 · 路由 {route} 已接管',
       takeoverOwnRoute: '自有路由模式 · {route}',
       takeoverWaiting: '等待接管',
@@ -157,9 +180,9 @@ window.__ModuleLoader__.load({
       tagAlias: '别名',
     };
     const en = {
-      nav: 'Multi-provider account pool',
-      title: 'Multi-provider account pool',
-      subtitle: 'Independent key pools and automatic failover for OpenCode Go, Zen, and OpenRouter',
+      nav: 'Account pool switcher',
+      title: 'Account pool switcher',
+      subtitle: 'Accounts, models, and automatic failover for OpenCode Go, Zen, and OpenRouter',
       providerOpenCodeGo: 'OpenCode Go',
       providerOpenCode: 'OpenCode Zen',
       providerOpenRouter: 'OpenRouter',
@@ -171,6 +194,29 @@ window.__ModuleLoader__.load({
       paused: 'repeated failures, auto-refresh paused',
       refresh: 'Refresh',
       refreshModels: 'Refresh models',
+      sectionOverview: 'Overview',
+      sectionAccounts: 'Accounts & usage',
+      sectionModels: 'Model catalog',
+      sectionRouting: 'Routing & switching',
+      overviewTitle: 'Provider overview',
+      overviewHint: 'Check pool health first, then manage the model catalog or routing rules.',
+      accountSummary: 'Account status',
+      accountCount: '{n} accounts',
+      healthyCount: '{n} usable',
+      activeKey: 'active',
+      noActiveKey: 'no active account',
+      routeSummary: 'Route status',
+      catalogSummary: 'Model catalog',
+      modelSummary: '{n} models',
+      configuredSummary: '{n} configured',
+      recentSwitch: 'Last switch',
+      noSwitch: 'No switch recorded',
+      openSection: 'Open',
+      viewDetails: 'View details',
+      collapseDetails: 'Hide details',
+      routeOwnerHint: 'Another plugin currently owns this route.',
+      routeServingHint: 'This pool is serving the Provider route.',
+      routeDisabledHint: 'Provider takeover is disabled.',
       takeoverServing: 'Serving · {route} route taken over',
       takeoverOwnRoute: 'Own route mode · {route}',
       takeoverWaiting: 'Waiting for takeover',
@@ -350,18 +396,43 @@ window.__ModuleLoader__.load({
     }
 
     const styles = {
-      wrap: { maxWidth: 760, display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' },
-      providerTabs: { display: 'flex', gap: 8, flexWrap: 'wrap', borderBottom: '1px solid var(--dsw-alias-border-l2)', paddingBottom: 8 },
-      providerTab: { flex: '1 1 150px', minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3, border: '1px solid var(--dsw-alias-border-l2)', color: 'var(--dsw-alias-label-secondary)', font: 'inherit', cursor: 'pointer', background: 'transparent', borderRadius: 8, padding: '8px 10px', textAlign: 'left' },
+      wrap: { width: '100%', maxWidth: 'none', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' },
+      providerTabs: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, borderBottom: '1px solid var(--dsw-alias-border-l2)', paddingBottom: 10 },
+      providerTab: { minWidth: 0, minHeight: 64, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 3, border: '1px solid var(--dsw-alias-border-l2)', color: 'var(--dsw-alias-label-secondary)', font: 'inherit', cursor: 'pointer', background: 'transparent', borderRadius: 8, padding: '10px 12px', textAlign: 'left' },
       providerTabActive: { borderColor: 'var(--dsw-alias-state-business-primary)', color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-layer-3)' },
       providerHint: { fontSize: 11, color: 'var(--dsw-alias-label-tertiary)', lineHeight: 1.35 },
       title: { fontSize: 16, fontWeight: 600, margin: 0 },
       subtitle: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, margin: '2px 0 0' },
+      sectionTabs: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--dsw-alias-border-l2)', paddingBottom: 2 },
+      sectionTab: { border: 0, borderBottom: '2px solid transparent', color: 'var(--dsw-alias-label-secondary)', font: 'inherit', cursor: 'pointer', background: 'transparent', padding: '8px 10px', minHeight: 40 },
+      sectionTabActive: { color: 'var(--dsw-alias-state-business-primary)', borderBottomColor: 'var(--dsw-alias-state-business-primary)', fontWeight: 600 },
       hint: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 13, lineHeight: 1.6, margin: 0 },
       error: { color: 'var(--dsw-alias-state-error-primary)', fontSize: 13, lineHeight: 1.6, margin: 0 },
       banner: { border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 10, padding: '12px 14px', fontSize: 13, lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 6 },
       bannerWarn: { borderColor: 'var(--dsw-alias-state-warning-primary, #d97706)', color: 'var(--dsw-alias-label-primary)' },
       bannerOk: { borderColor: 'var(--dsw-alias-state-business-primary)', color: 'var(--dsw-alias-label-primary)' },
+      statusStrip: { border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 8, padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' },
+      statusStripWarn: { borderColor: 'var(--dsw-alias-state-warning-primary, #d97706)' },
+      statusStripOk: { borderColor: 'var(--dsw-alias-state-business-primary)' },
+      statusStripMain: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flexWrap: 'wrap' },
+      statusDot: { width: 8, height: 8, borderRadius: '50%', flex: 'none', background: 'var(--dsw-alias-label-tertiary)' },
+      statusDotWarn: { background: 'var(--dsw-alias-state-warning-primary, #d97706)' },
+      statusDotOk: { background: 'var(--dsw-alias-state-business-primary)' },
+      statusStripText: { fontWeight: 600 },
+      statusStripMeta: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12 },
+      overviewGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 },
+      metricCard: { border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 8, padding: '12px 14px', minWidth: 0 },
+      metricLabel: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, margin: 0 },
+      metricValue: { fontSize: 20, fontWeight: 650, margin: '6px 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      metricMeta: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      overviewColumns: { display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(240px, .8fr)', gap: 12, alignItems: 'start' },
+      panel: { border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 10, padding: '14px 16px', minWidth: 0 },
+      panelHead: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 10 },
+      panelTitle: { fontSize: 14, fontWeight: 600, margin: 0 },
+      panelRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--dsw-alias-border-l2)', minWidth: 0 },
+      panelRowLast: { borderBottom: 0 },
+      panelRowLabel: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      panelRowValue: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, textAlign: 'right', flex: 'none' },
       card: { border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 },
       cardHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' },
       cardName: { fontSize: 14, fontWeight: 600, margin: 0 },
@@ -1122,10 +1193,141 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function switchReasonLabel(lastSwitch, t) {
+      if (!lastSwitch) return '';
+      if (lastSwitch.reason === 'quota') return t('switchQuota');
+      if (lastSwitch.reason === 'invalid') return t('switchInvalid');
+      if (lastSwitch.reason === 'consecutive') return t('switchConsecutive');
+      return t('switchManual');
+    }
+
+    function switchSummary(lastSwitch, t) {
+      if (!lastSwitch) return t('noSwitch');
+      const when = lastSwitch.at ? new Date(lastSwitch.at).toLocaleString() : '—';
+      return `${lastSwitch.from ?? '—'} → ${lastSwitch.to ?? '—'} · ${switchReasonLabel(lastSwitch, t)} · ${when}`;
+    }
+
+    /** Compact route status used across every inner section. */
+    function TakeoverStrip(props) {
+      const { data, t, keys } = props;
+      const [expanded, setExpanded] = React.useState(false);
+      if (!data) return null;
+      const takeover = data.takeover;
+      const waiting = takeover === 'waiting';
+      const disabled = takeover === 'disabled';
+      const title = (takeover === 'serving' ? t('takeoverServing')
+        : takeover === 'own-route' ? t('takeoverOwnRoute')
+          : disabled ? t('takeoverDisabled')
+            : t('takeoverWaiting')).replace('{route}', data.route || data.id);
+      const detail = waiting
+        ? `${t('takeoverWaitingHint').replace('{route}', data.route || data.id)}${data.takeoverHint ? ` ${data.takeoverHint}` : ''}`
+        : disabled
+          ? t('takeoverDisabledHint')
+          : data.activeId
+            ? `${t('activeBanner')}: ${data.activeId} · ${t('preemptNote')}: ${data.preemptAtPercent >= 100 ? t('preemptOff') : data.preemptAtPercent + '%'} · ${t('consecNote')}: ${data.switchAfterConsecutiveFailures > 0 ? data.switchAfterConsecutiveFailures : t('preemptOff')}`
+            : t('noActiveKey');
+      return React.createElement('div', {
+        style: { ...styles.statusStrip, ...(waiting ? styles.statusStripWarn : styles.statusStripOk) },
+      },
+        React.createElement('div', { style: styles.statusStripMain },
+          React.createElement('span', { style: { ...styles.statusDot, ...(waiting ? styles.statusDotWarn : styles.statusDotOk) }, 'aria-hidden': 'true' }),
+          React.createElement('span', { style: styles.statusStripText }, title),
+          keys.length > 0
+            ? React.createElement('span', { style: styles.statusStripMeta }, `${keys.length} · ${data.activeId || '—'}`)
+            : null,
+        ),
+        React.createElement('button', {
+          type: 'button',
+          style: styles.button,
+          'aria-expanded': expanded,
+          onClick: () => setExpanded(value => !value),
+        }, expanded ? t('collapseDetails') : t('viewDetails')),
+        expanded
+          ? React.createElement('div', { style: { flexBasis: '100%', color: 'var(--dsw-alias-label-secondary)', fontSize: 12 } },
+              detail,
+              data.lastSwitch
+                ? React.createElement('div', { style: { marginTop: 4 } }, `${t('recentSwitch')}: ${switchSummary(data.lastSwitch, t)}`)
+                : null,
+            )
+          : null,
+      );
+    }
+
+    function OverviewPanel(props) {
+      const { data, t, onNavigate } = props;
+      const keys = Array.isArray(data && data.keys) ? data.keys : [];
+      const models = Array.isArray(data && data.availableModels) ? data.availableModels : [];
+      const usable = keys.filter(item => item.state === 'healthy').length;
+      const configured = data && data.modelMode === 'custom'
+        ? (Array.isArray(data.configuredModels) ? data.configuredModels.length : 0)
+        : models.length;
+      const active = keys.find(item => item.active) || null;
+      const routeText = data.takeover === 'serving' ? t('takeoverServing').replace('{route}', data.route)
+        : data.takeover === 'disabled' ? t('takeoverDisabled')
+          : t('takeoverWaiting');
+      return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+        React.createElement('div', { style: styles.panel },
+          React.createElement('div', { style: styles.panelHead },
+            React.createElement('div', null,
+              React.createElement('h3', { style: styles.panelTitle }, t('overviewTitle')),
+              React.createElement('p', { style: styles.cardMeta }, t('overviewHint')),
+            ),
+            React.createElement('span', { style: styles.cardMeta }, data.displayName),
+          ),
+          React.createElement('div', { className: 'dsh-ap-overview-grid', style: styles.overviewGrid },
+            React.createElement('div', { style: styles.metricCard },
+              React.createElement('p', { style: styles.metricLabel }, t('accountSummary')),
+              React.createElement('p', { style: styles.metricValue }, t('accountCount').replace('{n}', String(keys.length))),
+              React.createElement('p', { style: styles.metricMeta }, t('healthyCount').replace('{n}', String(usable))),
+            ),
+            React.createElement('div', { style: styles.metricCard },
+              React.createElement('p', { style: styles.metricLabel }, t('catalogSummary')),
+              React.createElement('p', { style: styles.metricValue }, t('modelSummary').replace('{n}', String(models.length))),
+              React.createElement('p', { style: styles.metricMeta }, t('configuredSummary').replace('{n}', String(configured))),
+            ),
+            React.createElement('div', { style: styles.metricCard },
+              React.createElement('p', { style: styles.metricLabel }, t('routeSummary')),
+              React.createElement('p', { style: { ...styles.metricValue, fontSize: 16 } }, routeText),
+              React.createElement('p', { style: styles.metricMeta }, active ? `${t('activeKey')}: ${active.label}` : t('noActiveKey')),
+            ),
+          ),
+        ),
+        React.createElement('div', { className: 'dsh-ap-overview-columns', style: styles.overviewColumns },
+          React.createElement('div', { style: styles.panel },
+            React.createElement('div', { style: styles.panelHead },
+              React.createElement('h3', { style: styles.panelTitle }, t('accountSummary')),
+              React.createElement('span', { style: styles.cardMeta }, `${usable}/${keys.length}`),
+            ),
+            keys.length === 0
+              ? React.createElement('p', { style: styles.hint }, t('noKeysTitle'))
+              : keys.map((item, index) => React.createElement('div', {
+                key: item.id,
+                style: index === keys.length - 1 ? { ...styles.panelRow, ...styles.panelRowLast } : styles.panelRow,
+              },
+                React.createElement('span', { style: styles.panelRowLabel }, `${item.label} · ${item.state}`),
+                React.createElement('span', { style: styles.panelRowValue }, item.active ? t('activeKey') : item.apiKeyEnv),
+              )),
+          ),
+          React.createElement('div', { style: styles.panel },
+            React.createElement('div', { style: styles.panelHead },
+              React.createElement('h3', { style: styles.panelTitle }, t('openSection')),
+            ),
+            React.createElement('div', { style: styles.actions },
+              React.createElement('button', { type: 'button', style: { ...styles.button, ...styles.buttonPrimary }, onClick: () => onNavigate('models') }, t('sectionModels')),
+              React.createElement('button', { type: 'button', style: styles.button, onClick: () => onNavigate('accounts') }, t('sectionAccounts')),
+              React.createElement('button', { type: 'button', style: styles.button, onClick: () => onNavigate('routing') }, t('sectionRouting')),
+            ),
+            React.createElement('p', { style: { ...styles.cardMeta, marginTop: 10 } }, `${t('recentSwitch')}: ${switchSummary(data.lastSwitch, t)}`),
+          ),
+        ),
+      );
+    }
+
     function PoolPage(props) {
       const { t, api } = props;
       const [rootData, setRootData] = React.useState(null);
       const [providerId, setProviderId] = React.useState('opencode-go');
+      const [activeSection, setActiveSection] = React.useState('overview');
       const [error, setError] = React.useState(null);
       const [failures, setFailures] = React.useState(0);
       const [pollMs, setPollMs] = React.useState(30000);
@@ -1278,7 +1480,7 @@ window.__ModuleLoader__.load({
             React.createElement('p', { style: styles.subtitle }, t('subtitle')),
           ),
         ),
-        React.createElement('div', { style: styles.providerTabs, role: 'tablist' },
+        React.createElement('div', { className: 'dsh-ap-provider-tabs', style: styles.providerTabs, role: 'tablist', 'aria-label': t('title') },
           PROVIDER_IDS.map(id => React.createElement('button', {
             key: id,
             type: 'button',
@@ -1294,6 +1496,21 @@ window.__ModuleLoader__.load({
             React.createElement('span', { style: styles.providerHint }, providerHint(id, t)),
           )),
         ),
+        React.createElement('div', { className: 'dsh-ap-section-tabs', style: styles.sectionTabs, role: 'tablist', 'aria-label': t('title') },
+          [
+            ['overview', t('sectionOverview')],
+            ['accounts', t('sectionAccounts')],
+            ['models', t('sectionModels')],
+            ['routing', t('sectionRouting')],
+          ].map(([id, label]) => React.createElement('button', {
+            key: id,
+            type: 'button',
+            role: 'tab',
+            'aria-selected': activeSection === id,
+            style: { ...styles.sectionTab, ...(activeSection === id ? styles.sectionTabActive : {}) },
+            onClick: () => setActiveSection(id),
+          }, label)),
+        ),
         data === null && !error
           ? React.createElement('p', { style: styles.hint }, t('loading'))
           : null,
@@ -1307,73 +1524,88 @@ window.__ModuleLoader__.load({
         data === null
           ? null
           : React.createElement(React.Fragment, null,
-            React.createElement('div', { style: { ...styles.banner, ...(takeover === 'waiting' ? styles.bannerWarn : styles.bannerOk) } },
-              React.createElement('p', { style: { margin: 0, fontWeight: 600 } },
-                (takeover === 'serving' ? t('takeoverServing')
-                  : takeover === 'own-route' ? t('takeoverOwnRoute')
-                    : takeover === 'disabled' ? t('takeoverDisabled')
-                      : t('takeoverWaiting')).replace('{route}', data.route || selectedId)),
-              takeover === 'waiting'
-                ? React.createElement('p', { style: styles.hint }, `${t('takeoverWaitingHint').replace('{route}', data.route || selectedId)}${data.takeoverHint ? ` ${data.takeoverHint}` : ''}`)
-                : null,
-              takeover === 'disabled'
-                ? React.createElement('p', { style: styles.hint }, t('takeoverDisabledHint'))
-                : null,
-              data.activeId
-                ? React.createElement('p', { style: styles.hint },
-                    `${t('activeBanner')}: ${data.activeId} · ${t('preemptNote')}: ${data.preemptAtPercent >= 100 ? t('preemptOff') : data.preemptAtPercent + '%'} · ${t('consecNote')}: ${data.switchAfterConsecutiveFailures > 0 ? data.switchAfterConsecutiveFailures : t('preemptOff')}`)
-                : null,
-              data.lastSwitch
-                ? React.createElement('p', { style: styles.hint }, `${t('lastSwitch')}: ${data.lastSwitch.from ?? '—'} → ${data.lastSwitch.to ?? '—'} (${data.lastSwitch.reason === 'quota' ? t('switchQuota') : data.lastSwitch.reason === 'invalid' ? t('switchInvalid') : data.lastSwitch.reason === 'consecutive' ? t('switchConsecutive') : t('switchManual')}) @ ${new Date(data.lastSwitch.at).toLocaleString()}`)
-                : null,
-              keys.length > 0 && data.activeId === null
-                ? React.createElement('p', { style: styles.error }, t('noKeysHint'))
-                : null,
-            ),
-            React.createElement(ModelCard, {
-              t, data, sel: modelSel, setSel: setModelSel, busy,
-              onSave: (patch, invalidMessage) => {
-                if (!patch) {
-                  setNotice({ ok: false, text: `${t('saveFailed')}: ${invalidMessage}` });
-                  return;
-                }
-                onSetModels(patch);
-              },
-            }),
-            keys.length > 0
-              ? React.createElement(StrategyCard, {
-                  t, data, strategy, setStrategy, busy,
+            React.createElement(TakeoverStrip, { data, t, keys }),
+            activeSection === 'overview'
+              ? React.createElement(OverviewPanel, { data, t, onNavigate: setActiveSection })
+              : activeSection === 'models'
+                ? React.createElement(ModelCard, {
+                  t, data, sel: modelSel, setSel: setModelSel, busy,
                   onSave: (patch, invalidMessage) => {
                     if (!patch) {
                       setNotice({ ok: false, text: `${t('saveFailed')}: ${invalidMessage}` });
                       return;
                     }
-                    onSetStrategy(patch);
+                    onSetModels(patch);
                   },
                 })
-              : null,
-            keys.length === 0 && takeover !== 'waiting'
-              ? React.createElement('div', { style: styles.banner },
-                React.createElement('p', { style: { margin: 0, fontWeight: 600 } }, t('noKeysTitle')),
-                React.createElement('p', { style: styles.hint }, t('noKeysHint')),
-              )
-              : null,
-            keys.map(item => React.createElement(KeyCard, {
-              key: item.id, item, t, tick, busy,
-              onAction: onKeyAction,
-            })),
-            draft === null
-              ? React.createElement('button', {
-                style: styles.button,
-                disabled: busy !== null,
-                onClick: () => setDraft(keys.map(k => ({ id: k.id, label: k.label, apiKeyEnv: k.apiKeyEnv, secret: '' }))),
-              }, t('manageTitle'))
-              : React.createElement(Editor, { draft, setDraft, t, busy, onSave: onSaveKeys, existingKeys: keys }),
+                : activeSection === 'accounts'
+                  ? React.createElement(React.Fragment, null,
+                    keys.length > 0
+                      ? React.createElement(StrategyCard, {
+                        t, data, strategy, setStrategy, busy,
+                        onSave: (patch, invalidMessage) => {
+                          if (!patch) {
+                            setNotice({ ok: false, text: `${t('saveFailed')}: ${invalidMessage}` });
+                            return;
+                          }
+                          onSetStrategy(patch);
+                        },
+                      })
+                      : React.createElement('div', { style: styles.banner },
+                        React.createElement('p', { style: { margin: 0, fontWeight: 600 } }, t('noKeysTitle')),
+                        React.createElement('p', { style: styles.hint }, t('noKeysHint')),
+                      ),
+                    keys.map(item => React.createElement(KeyCard, {
+                      key: item.id, item, t, tick, busy,
+                      onAction: onKeyAction,
+                    })),
+                    draft === null
+                      ? React.createElement('button', {
+                        style: styles.button,
+                        disabled: busy !== null,
+                        onClick: () => setDraft(keys.map(k => ({ id: k.id, label: k.label, apiKeyEnv: k.apiKeyEnv, secret: '' }))),
+                      }, t('manageTitle'))
+                      : React.createElement(Editor, { draft, setDraft, t, busy, onSave: onSaveKeys, existingKeys: keys }),
+                  )
+                  : React.createElement(React.Fragment, null,
+                    React.createElement('div', { style: styles.panel },
+                      React.createElement('div', { style: styles.panelHead },
+                        React.createElement('div', null,
+                          React.createElement('h3', { style: styles.panelTitle }, t('sectionRouting')),
+                          React.createElement('p', { style: styles.cardMeta }, t('overviewHint')),
+                        ),
+                      ),
+                      React.createElement('div', { style: styles.panelRow },
+                        React.createElement('span', { style: styles.panelRowLabel }, t('activeBanner')),
+                        React.createElement('span', { style: styles.panelRowValue }, data.activeId || '—'),
+                      ),
+                      React.createElement('div', { style: styles.panelRow },
+                        React.createElement('span', { style: styles.panelRowLabel }, t('preemptNote')),
+                        React.createElement('span', { style: styles.panelRowValue }, data.preemptAtPercent >= 100 ? t('preemptOff') : `${data.preemptAtPercent}%`),
+                      ),
+                      React.createElement('div', { style: { ...styles.panelRow, ...styles.panelRowLast } },
+                        React.createElement('span', { style: styles.panelRowLabel }, t('recentSwitch')),
+                        React.createElement('span', { style: styles.panelRowValue }, switchSummary(data.lastSwitch, t)),
+                      ),
+                    ),
+                    keys.length > 0
+                      ? React.createElement(StrategyCard, {
+                        t, data, strategy, setStrategy, busy,
+                        onSave: (patch, invalidMessage) => {
+                          if (!patch) {
+                            setNotice({ ok: false, text: `${t('saveFailed')}: ${invalidMessage}` });
+                            return;
+                          }
+                          onSetStrategy(patch);
+                        },
+                      })
+                      : null,
+                  ),
             notice
               ? React.createElement('p', { style: { ...styles.notice, ...(notice.ok ? styles.noticeOk : styles.noticeErr) } }, notice.text)
               : null,
             React.createElement('div', { style: styles.actions },
-              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+              React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
                 React.createElement('button', { style: styles.button, disabled: busy !== null || refreshing, onClick: load }, refreshing ? t('refreshing') : t('refresh')),
                 React.createElement('button', { style: styles.button, disabled: busy !== null || refreshing, onClick: onRefreshModels }, t('refreshModels')),
                 loadedAt
@@ -1415,8 +1647,21 @@ window.__ModuleLoader__.load({
       if (document.getElementById('dsh-ap-nav-style')) return;
       const style = document.createElement('style');
       style.id = 'dsh-ap-nav-style';
-      // Hide the shell's default gear icon on our nav row only.
-      style.textContent = 'button:has(.dsh-ap-nav-mark) > svg { display: none; }';
+      // Hide the shell's default gear icon on our nav row only, and make the
+      // account-pool workspace collapse cleanly on narrower settings panes.
+      style.textContent = `
+        button:has(.dsh-ap-nav-mark) > svg { display: none; }
+        .dsh-ap-overview-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .dsh-ap-overview-columns { grid-template-columns: minmax(0, 1.4fr) minmax(240px, .8fr); }
+        @media (max-width: 980px) {
+          .dsh-ap-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .dsh-ap-overview-columns { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+          .dsh-ap-provider-tabs { grid-template-columns: 1fr; }
+          .dsh-ap-overview-grid { grid-template-columns: 1fr; }
+        }
+      `;
       document.head.appendChild(style);
     }
 
