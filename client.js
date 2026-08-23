@@ -55,6 +55,20 @@ window.__ModuleLoader__.load({
       routeOwnerHint: '当前路由由其他插件持有。',
       routeServingHint: '本账号池正在提供该 Provider 路由。',
       routeDisabledHint: '账号池接管已关闭。',
+      poolEnabled: '账号池启用',
+      takeoverEnabled: '自动接管',
+      enabledState: '已开启',
+      disabledState: '已关闭',
+      enablePool: '启用账号池',
+      disablePool: '停用账号池',
+      enableTakeover: '开启自动接管',
+      disableTakeover: '关闭自动接管',
+      switchHistory: '切换记录',
+      historyEmpty: '暂无切换记录；发生额度耗尽、凭据失效或手动切换后会显示在这里。',
+      recentSwitches: '{n} 条记录',
+      routeDetail: '路由详情',
+      confirmDisablePool: '停用账号池后，该 Provider 不再参与请求。确定继续？',
+      confirmDisableTakeover: '关闭自动接管后，该 Provider 路由不会由本插件接管。确定继续？',
       takeoverServing: '服务中 · 路由 {route} 已接管',
       takeoverOwnRoute: '自有路由模式 · {route}',
       takeoverWaiting: '等待接管',
@@ -225,6 +239,20 @@ window.__ModuleLoader__.load({
       routeOwnerHint: 'Another plugin currently owns this route.',
       routeServingHint: 'This pool is serving the Provider route.',
       routeDisabledHint: 'Provider takeover is disabled.',
+      poolEnabled: 'Pool enabled',
+      takeoverEnabled: 'Automatic takeover',
+      enabledState: 'On',
+      disabledState: 'Off',
+      enablePool: 'Enable pool',
+      disablePool: 'Disable pool',
+      enableTakeover: 'Enable takeover',
+      disableTakeover: 'Disable takeover',
+      switchHistory: 'Switch history',
+      historyEmpty: 'No switches recorded yet. Quota, credential, and manual switches will appear here.',
+      recentSwitches: '{n} records',
+      routeDetail: 'Route details',
+      confirmDisablePool: 'Disable the pool? This Provider will stop serving requests.',
+      confirmDisableTakeover: 'Disable automatic takeover? This plugin will not claim the Provider route.',
       takeoverServing: 'Serving · {route} route taken over',
       takeoverOwnRoute: 'Own route mode · {route}',
       takeoverWaiting: 'Waiting for takeover',
@@ -449,6 +477,7 @@ window.__ModuleLoader__.load({
       panelRowLast: { borderBottom: 0 },
       panelRowLabel: { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
       panelRowValue: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, textAlign: 'right', flex: 'none' },
+      keyGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 },
       card: { border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 10, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 },
       cardHead: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' },
       cardName: { fontSize: 14, fontWeight: 600, margin: 0 },
@@ -1451,6 +1480,71 @@ window.__ModuleLoader__.load({
       );
     }
 
+    function RoutingPanel(props) {
+      const { data, t, busy, onSave } = props;
+      const history = Array.isArray(data.switchHistory)
+        ? data.switchHistory
+        : data.lastSwitch ? [data.lastSwitch] : [];
+      const poolEnabled = data.enabled !== false;
+      const takeoverEnabled = data.takeoverEnabled !== false;
+      const toggle = (field, current, confirmText) => {
+        if (current && typeof window !== 'undefined' && typeof window.confirm === 'function' && !window.confirm(confirmText)) return;
+        onSave({ [field]: !current });
+      };
+      return React.createElement(React.Fragment, null,
+        React.createElement('div', { style: styles.panel },
+          React.createElement('div', { style: styles.panelHead },
+            React.createElement('div', null,
+              React.createElement('h3', { style: styles.panelTitle }, t('routeDetail')),
+              React.createElement('p', { style: styles.cardMeta }, `${data.displayName} · ${data.route}`),
+            ),
+            React.createElement('span', { style: styles.badge }, data.takeover),
+          ),
+          React.createElement('div', { style: styles.panelRow },
+            React.createElement('span', { style: styles.panelRowLabel }, t('poolEnabled')),
+            React.createElement('span', { style: styles.panelRowValue }, poolEnabled ? t('enabledState') : t('disabledState')),
+          ),
+          React.createElement('div', { style: styles.panelRow },
+            React.createElement('span', { style: styles.panelRowLabel }, t('takeoverEnabled')),
+            React.createElement('span', { style: styles.panelRowValue }, takeoverEnabled ? t('enabledState') : t('disabledState')),
+          ),
+          React.createElement('div', { style: { ...styles.panelRow, ...styles.panelRowLast } },
+            React.createElement('span', { style: styles.panelRowLabel }, t('activeBanner')),
+            React.createElement('span', { style: styles.panelRowValue }, data.activeId || '—'),
+          ),
+          React.createElement('div', { style: styles.actions },
+            React.createElement('button', {
+              type: 'button',
+              style: { ...styles.button, ...(poolEnabled ? styles.buttonDanger : styles.buttonPrimary) },
+              disabled: busy !== null,
+              onClick: () => toggle('enabled', poolEnabled, t('confirmDisablePool')),
+            }, poolEnabled ? t('disablePool') : t('enablePool')),
+            React.createElement('button', {
+              type: 'button',
+              style: { ...styles.button, ...(takeoverEnabled ? styles.buttonDanger : styles.buttonPrimary) },
+              disabled: busy !== null,
+              onClick: () => toggle('takeover', takeoverEnabled, t('confirmDisableTakeover')),
+            }, takeoverEnabled ? t('disableTakeover') : t('enableTakeover')),
+          ),
+        ),
+        React.createElement('div', { style: styles.panel },
+          React.createElement('div', { style: styles.panelHead },
+            React.createElement('h3', { style: styles.panelTitle }, t('switchHistory')),
+            React.createElement('span', { style: styles.cardMeta }, t('recentSwitches').replace('{n}', String(history.length))),
+          ),
+          history.length === 0
+            ? React.createElement('p', { style: styles.hint }, t('historyEmpty'))
+            : history.map((item, index) => React.createElement('div', {
+              key: `${item.at || index}:${item.from || ''}:${item.to || ''}`,
+              style: index === history.length - 1 ? { ...styles.panelRow, ...styles.panelRowLast } : styles.panelRow,
+            },
+              React.createElement('span', { style: styles.panelRowLabel }, `${item.from || '—'} → ${item.to || '—'}`),
+              React.createElement('span', { style: styles.panelRowValue }, `${switchReasonLabel(item, t)} · ${item.at ? new Date(item.at).toLocaleString() : '—'}`),
+            )),
+        ),
+      );
+    }
+
     function PoolPage(props) {
       const { t, api } = props;
       const [rootData, setRootData] = React.useState(null);
@@ -1582,6 +1676,14 @@ window.__ModuleLoader__.load({
           });
       };
 
+      const onSetRouting = (patch) => {
+        runAction(async remote => remote.putConfig(selectedId, patch), null)
+          .then(ok => {
+            if (!ok) return;
+            setNotice(prev => prev && !prev.ok ? prev : { ok: true, text: t('saved') });
+          });
+      };
+
       const onSetModels = (patch) => {
         runAction(async remote => remote.putConfig(selectedId, patch), null)
           .then(ok => {
@@ -1683,10 +1785,12 @@ window.__ModuleLoader__.load({
                         React.createElement('p', { style: { margin: 0, fontWeight: 600 } }, t('noKeysTitle')),
                         React.createElement('p', { style: styles.hint }, t('noKeysHint')),
                       ),
-                    keys.map(item => React.createElement(KeyCard, {
-                      key: item.id, item, t, tick, busy,
-                      onAction: onKeyAction,
-                    })),
+                    React.createElement('div', { className: 'dsh-ap-key-grid', style: styles.keyGrid },
+                      keys.map(item => React.createElement(KeyCard, {
+                        key: item.id, item, t, tick, busy,
+                        onAction: onKeyAction,
+                      })),
+                    ),
                     draft === null
                       ? React.createElement('button', {
                         style: styles.button,
@@ -1696,26 +1800,7 @@ window.__ModuleLoader__.load({
                       : React.createElement(Editor, { draft, setDraft, t, busy, onSave: onSaveKeys, existingKeys: keys }),
                   )
                   : React.createElement(React.Fragment, null,
-                    React.createElement('div', { style: styles.panel },
-                      React.createElement('div', { style: styles.panelHead },
-                        React.createElement('div', null,
-                          React.createElement('h3', { style: styles.panelTitle }, t('sectionRouting')),
-                          React.createElement('p', { style: styles.cardMeta }, t('overviewHint')),
-                        ),
-                      ),
-                      React.createElement('div', { style: styles.panelRow },
-                        React.createElement('span', { style: styles.panelRowLabel }, t('activeBanner')),
-                        React.createElement('span', { style: styles.panelRowValue }, data.activeId || '—'),
-                      ),
-                      React.createElement('div', { style: styles.panelRow },
-                        React.createElement('span', { style: styles.panelRowLabel }, t('preemptNote')),
-                        React.createElement('span', { style: styles.panelRowValue }, data.preemptAtPercent >= 100 ? t('preemptOff') : `${data.preemptAtPercent}%`),
-                      ),
-                      React.createElement('div', { style: { ...styles.panelRow, ...styles.panelRowLast } },
-                        React.createElement('span', { style: styles.panelRowLabel }, t('recentSwitch')),
-                        React.createElement('span', { style: styles.panelRowValue }, switchSummary(data.lastSwitch, t)),
-                      ),
-                    ),
+                    React.createElement(RoutingPanel, { data, t, busy, onSave: onSetRouting }),
                     keys.length > 0
                       ? React.createElement(StrategyCard, {
                         t, data, strategy, setStrategy, busy,
@@ -1782,11 +1867,13 @@ window.__ModuleLoader__.load({
         .dsh-ap-overview-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .dsh-ap-overview-columns { grid-template-columns: minmax(0, 1.4fr) minmax(240px, .8fr); }
         .dsh-ap-model-workspace { grid-template-columns: 190px minmax(0, 1fr) 220px; }
+        .dsh-ap-key-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         @media (max-width: 980px) {
           .dsh-ap-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .dsh-ap-overview-columns { grid-template-columns: 1fr; }
           .dsh-ap-model-workspace { grid-template-columns: 180px minmax(0, 1fr); }
           .dsh-ap-model-selection { grid-column: 1 / -1; position: static; }
+          .dsh-ap-key-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 640px) {
           .dsh-ap-provider-tabs { grid-template-columns: 1fr; }
@@ -1794,6 +1881,7 @@ window.__ModuleLoader__.load({
           .dsh-ap-model-workspace { grid-template-columns: 1fr; }
           .dsh-ap-model-filter { position: static; }
           .dsh-ap-model-selection { grid-column: auto; }
+          .dsh-ap-key-grid { grid-template-columns: 1fr; }
         }
       `;
       document.head.appendChild(style);

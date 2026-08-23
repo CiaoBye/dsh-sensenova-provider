@@ -103,6 +103,8 @@ export class KeyPool {
     this.activeId = null
     /** @type {{from: string|null, to: string|null, reason: 'quota'|'invalid'|'manual', at: string}|null} */
     this.lastSwitch = null
+    /** @type {Array<{from: string|null, to: string|null, reason: string, at: string}>} */
+    this.switchHistory = []
     if (this.stateFile) this.load()
   }
 
@@ -211,17 +213,22 @@ export class KeyPool {
 
   // ---- mutations -----------------------------------------------------------
 
+  recordSwitch(event) {
+    this.lastSwitch = event
+    this.switchHistory = [event, ...this.switchHistory].slice(0, 20)
+  }
+
   /** Manually designate the active key (card "switch now"). */
   setActive(id) {
     if (!this.states.has(id)) throw new Error(`unknown key "${id}"`)
     if (!this.isUsable(id)) throw new Error(`key "${id}" is not usable right now`)
     if (this.activeId !== id) {
-      this.lastSwitch = {
+      this.recordSwitch({
         from: this.activeId,
         to: id,
         reason: 'manual',
         at: new Date(this.now()).toISOString(),
-      }
+      })
     }
     this.activeId = id
     this.persist()
@@ -275,12 +282,12 @@ export class KeyPool {
         const next = this.pickNextUsableId(id)
         if (next !== null && next !== id) {
           this.activeId = next
-          this.lastSwitch = {
+          this.recordSwitch({
             from: id,
             to: next,
             reason: 'consecutive',
             at: new Date(this.now()).toISOString(),
-          }
+          })
           this.persist()
           return { from: id, to: next }
         }
@@ -296,12 +303,12 @@ export class KeyPool {
       at: new Date(this.now()).toISOString(),
     }
     this.activeId = this.pickFirstUsableId()
-    this.lastSwitch = {
+    this.recordSwitch({
       from: id,
       to: this.activeId,
       reason,
       at: new Date(this.now()).toISOString(),
-    }
+    })
     this.persist()
     return { from: id, to: this.activeId }
   }
@@ -344,7 +351,7 @@ export class KeyPool {
     for (const [id, st] of this.states.entries()) {
       states[id] = { state: st.state, usage: st.usage ?? null, lastFailure: st.lastFailure ?? null, failureStreak: st.failureStreak ?? 0 }
     }
-    return { version: 1, activeId: this.activeId, lastSwitch: this.lastSwitch, states }
+    return { version: 1, activeId: this.activeId, lastSwitch: this.lastSwitch, switchHistory: this.switchHistory, states }
   }
 
   persist() {
@@ -366,6 +373,8 @@ export class KeyPool {
       if (!raw || typeof raw !== 'object' || raw.version !== 1) return
       if (typeof raw.activeId === 'string') this.activeId = raw.activeId
       if (raw.lastSwitch && typeof raw.lastSwitch === 'object') this.lastSwitch = raw.lastSwitch
+      if (Array.isArray(raw.switchHistory)) this.switchHistory = raw.switchHistory.filter(item => item && typeof item === 'object').slice(0, 20)
+      if (this.lastSwitch && this.switchHistory.length === 0) this.switchHistory = [this.lastSwitch]
       if (raw.states && typeof raw.states === 'object') {
         for (const [id, st] of Object.entries(raw.states)) {
           if (!st || typeof st !== 'object') continue

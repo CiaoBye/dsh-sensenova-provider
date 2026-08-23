@@ -1,6 +1,6 @@
 # dsh-account-pool
 
-DeepSeek Harness（DSH）插件：为 OpenCode Go、OpenCode Zen 和 OpenRouter 提供独立的多 Key 账号池、模型目录和故障切换。
+DeepSeek Harness（DSH）插件：为 OpenCode Go、OpenCode Zen 和 OpenRouter 提供“账号池切换”工作台、独立多 Key 账号池、模型目录和故障切换。
 
 ## 能做什么
 
@@ -10,7 +10,7 @@ DeepSeek Harness（DSH）插件：为 OpenCode Go、OpenCode Zen 和 OpenRouter 
 - OpenRouter 按账户额度和剩余额度进行预切换；普通上游 429 不会误判为账号耗尽。
 - OpenCode Zen 当前没有公开用量接口，卡片展示“用量不可用”，仍支持请求失败切换。
 - 模型目录以本地 pi-ai catalog 为安全基线，并按 Provider 刷新官方/公开的 `/models` 响应。
-- 设置页用三个 Provider 选项卡管理 Key、模型选择、切换策略和模型目录刷新；自定义模型支持搜索、提供商/能力筛选、分组折叠、批量选择和“仅保留此模型”。
+- 设置页入口名为“账号池切换”，按概览、账号与额度、模型目录、路由与切换分区；模型目录使用筛选栏、分组折叠、虚拟化列表和当前选择摘要，支持单模型与批量选择。
 
 ## Provider 路由
 
@@ -30,7 +30,7 @@ dsh plugin --profile web add "github:CiaoBye/dsh-account-pool#main"
 
 当前仓库为私有 GitHub 仓库，安装前请确保本机 GitHub HTTPS 凭据或 SSH 权限可用。若使用 SSH，可改用 `git+ssh://git@github.com/CiaoBye/dsh-account-pool.git#main`。
 
-重启 DSH 后，在设置侧边栏打开“多 Provider 账号池”。如果模型设置中已经有同名 Provider 行，先移除该行或关闭本插件对应 Provider 的 takeover，让路由归属保持唯一。
+重启 DSH 后，在设置侧边栏打开“账号池切换”。如果模型设置中已经有同名 Provider 行，先移除该行或关闭本插件对应 Provider 的 takeover，让路由归属保持唯一。
 
 ## 配置
 

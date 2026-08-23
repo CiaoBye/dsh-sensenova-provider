@@ -579,6 +579,7 @@ export class DshAccountPool extends TypertRemoteService {
       route: provider,
       enabled: cfg.enabled,
       takeover: this.takeoverState(provider),
+      takeoverEnabled: cfg.takeover,
       takeoverHint: this.lastTakeoverErrors.get(provider) ?? null,
       usageKind: driver.usageKind,
       canPreemptByUsage: driver.canPreemptByUsage,
@@ -593,6 +594,7 @@ export class DshAccountPool extends TypertRemoteService {
       availableModels,
       activeId: pool.activeId,
       lastSwitch: pool.lastSwitch,
+      switchHistory: [...pool.switchHistory],
       keys: entries.map(entry => {
         const state = pool.stateOf(entry.id)
         const usage = usageResults.find(item => item.id === entry.id)

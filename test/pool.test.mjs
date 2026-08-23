@@ -45,6 +45,7 @@ test('quota failure marks the key exhausted and rotates to the next', () => {
   assert.equal(pool.stateOf('acc-a').state, 'exhausted')
   assert.equal(pool.currentKey().id, 'acc-b')
   assert.equal(pool.lastSwitch.reason, 'quota')
+  assert.equal(pool.switchHistory.length, 1)
 })
 
 test('credential failure marks invalid and rotates; invalid keys never revive on usage', () => {
@@ -181,6 +182,7 @@ test('state file round-trips across a fresh pool instance', () => {
   assert.equal(b.stateOf('acc-c').state, 'disabled')
   assert.equal(b.activeId, 'acc-b')
   assert.equal(b.lastSwitch.reason, 'quota')
+  assert.equal(b.switchHistory.length, 1)
   assert.ok(readFileSync(stateFile, 'utf8').includes('"version": 1'))
 })
 

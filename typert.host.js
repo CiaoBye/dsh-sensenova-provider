@@ -37,6 +37,13 @@ const lastFailureSchema = z.object({
   at: z.string(),
 })
 
+const switchEventSchema = z.object({
+  from: z.string().nullable(),
+  to: z.string().nullable(),
+  reason: z.string(),
+  at: z.string(),
+})
+
 const keyStatusSchema = z.object({
   id: z.string(),
   label: z.string(),
@@ -73,6 +80,7 @@ const providerStatusSchema = z.object({
   route: z.string(),
   enabled: z.boolean(),
   takeover: z.string(),
+  takeoverEnabled: z.boolean(),
   takeoverHint: z.string().nullable(),
   usageKind: z.string(),
   canPreemptByUsage: z.boolean(),
@@ -86,12 +94,8 @@ const providerStatusSchema = z.object({
   configuredModels: z.array(z.string()),
   availableModels: z.array(modelSummarySchema),
   activeId: z.string().nullable(),
-  lastSwitch: z.object({
-    from: z.string().nullable(),
-    to: z.string().nullable(),
-    reason: z.string(),
-    at: z.string(),
-  }).nullable(),
+  lastSwitch: switchEventSchema.nullable(),
+  switchHistory: z.array(switchEventSchema),
   keys: z.array(keyStatusSchema),
 })
 
