@@ -1650,6 +1650,8 @@ window.__ModuleLoader__.load({
       const detail = routeStatusDetail(data, t);
       return React.createElement('div', {
         style: { ...styles.statusStrip, ...(warning ? styles.statusStripWarn : styles.statusStripOk) },
+        role: 'status',
+        'aria-live': 'polite',
       },
         React.createElement('div', { style: styles.statusStripMain },
           React.createElement('span', { style: { ...styles.statusDot, ...(warning ? styles.statusDotWarn : styles.statusDotOk) }, 'aria-hidden': 'true' }),
@@ -2039,7 +2041,7 @@ window.__ModuleLoader__.load({
           ? React.createElement('p', { style: styles.hint }, t('loading'))
           : null,
         error
-          ? React.createElement('div', { style: styles.banner },
+          ? React.createElement('div', { style: styles.banner, role: 'alert' },
             React.createElement('p', { style: styles.error }, `${t('loadFailed')}: ${error}`),
             failures >= 3 ? React.createElement('p', { style: styles.hint }, t('paused')) : null,
             React.createElement('button', { style: styles.button, onClick: () => { setFailures(0); load(); } }, t('refresh')),
@@ -2116,7 +2118,7 @@ window.__ModuleLoader__.load({
                       : null,
                   ),
             notice
-              ? React.createElement('p', { style: { ...styles.notice, ...(notice.ok ? styles.noticeOk : styles.noticeErr) } }, notice.text)
+              ? React.createElement('p', { style: { ...styles.notice, ...(notice.ok ? styles.noticeOk : styles.noticeErr) }, role: notice.ok ? 'status' : 'alert', 'aria-live': notice.ok ? 'polite' : 'assertive' }, notice.text)
               : null,
             React.createElement('div', { style: styles.actions },
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
@@ -2183,7 +2185,29 @@ window.__ModuleLoader__.load({
         .VOzbGW_panel:has(.dsh-ap-root) .VOzbGW_options, [role="dialog"]:has(.dsh-ap-root) .VOzbGW_options {
           min-height: 0;
         }
-        .dsh-ap-root { box-sizing: border-box; min-height: 100%; }
+        .dsh-ap-root {
+          box-sizing: border-box;
+          min-height: 100%;
+          background: var(--dsw-alias-bg-layer-1);
+        }
+        .dsh-ap-root *, .dsh-ap-root *::before, .dsh-ap-root *::after { box-sizing: border-box; }
+        .dsh-ap-root button:focus-visible,
+        .dsh-ap-root input:focus-visible,
+        .dsh-ap-root select:focus-visible {
+          outline: 2px solid var(--dsw-alias-state-business-primary);
+          outline-offset: 2px;
+        }
+        .dsh-ap-root button:not(:disabled):hover {
+          box-shadow: inset 0 0 0 1px var(--dsw-alias-state-business-primary);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .dsh-ap-root *, .dsh-ap-root *::before, .dsh-ap-root *::after {
+            animation-duration: .001ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: .001ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
         @media (max-width: 980px) {
           .dsh-ap-provider-context { grid-template-columns: 1fr; }
           .dsh-ap-provider-context-meta { justify-content: flex-start; }
