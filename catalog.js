@@ -72,7 +72,6 @@ const MODEL_GROUP_LABELS = Object.freeze({
   llama: 'Llama',
   mistral: 'Mistral AI',
   mimo: 'MiMo',
-  openai: 'OpenAI',
 })
 
 const MODEL_FAMILY_GROUPS = Object.freeze([
