@@ -1249,8 +1249,15 @@ window.__ModuleLoader__.load({
         setCollapsedGroups(data && data.id === 'openrouter' ? new Set(groups.map(group => group.key)) : new Set());
       }, [available.length, data && data.id]);
       React.useEffect(() => {
-        if (query.trim() || providerFilter !== 'all' || tagFilter !== 'all') setCollapsedGroups(new Set());
-      }, [providerFilter, query, tagFilter]);
+        const hasFilter = query.trim() || providerFilter !== 'all' || tagFilter !== 'all';
+        if (hasFilter) {
+          setCollapsedGroups(new Set());
+          return;
+        }
+        setCollapsedGroups(data && data.id === 'openrouter'
+          ? new Set(groups.map(group => group.key))
+          : new Set());
+      }, [data && data.id, groups, providerFilter, query, tagFilter]);
       return React.createElement('section', { style: styles.modelCatalog, 'aria-labelledby': 'dsh-model-catalog-title' },
         React.createElement('div', { style: styles.modelCatalogHead },
           React.createElement('div', { style: styles.modelCatalogTitle },
