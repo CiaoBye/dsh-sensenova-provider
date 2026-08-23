@@ -496,8 +496,10 @@ window.__ModuleLoader__.load({
       settingsHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
       settingsTitle: { fontSize: 15, fontWeight: 600, margin: 0 },
       settingsHint: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: 1.5, margin: '3px 0 0' },
-      switchLayout: { display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(260px, .75fr)', gap: 12, alignItems: 'start' },
-      activeAccountPanel: { border: '1px solid var(--dsw-alias-state-business-primary)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 10, padding: '16px 18px', minWidth: 0 },
+      switchLayout: { display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(260px, .75fr)', gap: 12, alignItems: 'stretch' },
+      switchPanel: { boxSizing: 'border-box', display: 'flex', flexDirection: 'column' },
+      switchPanelActions: { marginTop: 'auto' },
+      activeAccountPanel: { border: '1px solid var(--dsw-alias-state-business-primary)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 10, padding: '16px 18px', minWidth: 0, boxSizing: 'border-box' },
       activeAccountLabel: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, margin: 0 },
       activeAccountName: { fontSize: 24, fontWeight: 650, lineHeight: 1.25, margin: '6px 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
       activeAccountMeta: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
@@ -525,8 +527,8 @@ window.__ModuleLoader__.load({
       metricLabel: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, margin: 0 },
       metricValue: { fontSize: 20, fontWeight: 650, margin: '6px 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
       metricMeta: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-      overviewColumns: { display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(240px, .8fr)', gap: 12, alignItems: 'start' },
-      panel: { border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 10, padding: '14px 16px', minWidth: 0 },
+      overviewColumns: { display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(240px, .8fr)', gap: 12, alignItems: 'stretch' },
+      panel: { border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 10, padding: '14px 16px', minWidth: 0, boxSizing: 'border-box' },
       panelHead: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 10 },
       panelTitle: { fontSize: 14, fontWeight: 600, margin: 0 },
       panelRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--dsw-alias-border-l2)', minWidth: 0 },
@@ -1552,7 +1554,7 @@ window.__ModuleLoader__.load({
       const healthy = keys.filter(item => item.state === 'healthy').length;
       return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
         React.createElement('div', { className: 'dsh-ap-switch-layout', style: styles.switchLayout },
-          React.createElement('section', { style: styles.activeAccountPanel },
+          React.createElement('section', { style: { ...styles.activeAccountPanel, ...styles.switchPanel } },
             React.createElement('div', { style: styles.panelHead },
               React.createElement('div', null,
                 React.createElement('h3', { style: styles.panelTitle }, t('switchWorkspace')),
@@ -1583,13 +1585,13 @@ window.__ModuleLoader__.load({
                 React.createElement('p', { style: { ...styles.switchStatValue, fontSize: 13 } }, data.lastSwitch ? switchReasonLabel(data.lastSwitch, t) : t('noSwitch')),
               ),
             ),
-            React.createElement('div', { style: styles.actions },
+            React.createElement('div', { style: { ...styles.actions, ...styles.switchPanelActions } },
               React.createElement('button', { type: 'button', style: styles.button, disabled: refreshing || busy !== null, onClick: onRefresh }, refreshing ? t('refreshing') : t('refresh')),
               React.createElement('button', { type: 'button', style: styles.button, onClick: () => onNavigate('accounts') }, t('manageAccounts')),
               React.createElement('button', { type: 'button', style: styles.button, onClick: () => onNavigate('routing') }, t('switchSettings')),
             ),
           ),
-          React.createElement('section', { style: styles.panel },
+          React.createElement('section', { style: { ...styles.panel, ...styles.switchPanel } },
             React.createElement('div', { style: styles.panelHead },
               React.createElement('h3', { style: styles.panelTitle }, t('accountPoolSummary')),
               React.createElement('span', { style: styles.cardMeta }, data.displayName),
@@ -1606,7 +1608,7 @@ window.__ModuleLoader__.load({
               React.createElement('span', { style: styles.panelRowLabel }, t('recentSwitch')),
               React.createElement('span', { style: styles.panelRowValue }, data.lastSwitch ? switchReasonLabel(data.lastSwitch, t) : t('noSwitch')),
             ),
-            React.createElement('div', { style: styles.actions },
+            React.createElement('div', { style: { ...styles.actions, ...styles.switchPanelActions } },
               React.createElement('button', { type: 'button', style: styles.button, onClick: () => onNavigate('routing') }, t('openSettings')),
             ),
           ),
@@ -1817,6 +1819,7 @@ window.__ModuleLoader__.load({
       const [modelSel, setModelSel] = React.useState(null);
       const [refreshing, setRefreshing] = React.useState(false);
       const [loadedAt, setLoadedAt] = React.useState(null);
+      const rootRef = React.useRef(null);
 
       const providers = Array.isArray(rootData && rootData.providers) ? rootData.providers : [];
       const selected = providers.find(item => item.id === providerId) || providers[0] || null;
@@ -1832,6 +1835,21 @@ window.__ModuleLoader__.load({
         setModelSel(null);
         setNotice(null);
       }, [selectedId]);
+      React.useEffect(() => {
+        const root = rootRef.current;
+        if (!root || typeof window === 'undefined') return;
+        let node = root.parentElement;
+        while (node && node !== document.body) {
+          const computed = window.getComputedStyle(node);
+          const scrollable = (computed.overflowY === 'auto' || computed.overflowY === 'scroll')
+            && node.scrollHeight > node.clientHeight;
+          if (scrollable) {
+            node.scrollTop = 0;
+            break;
+          }
+          node = node.parentElement;
+        }
+      }, [activeSection, selectedId]);
 
       const load = React.useCallback(async () => {
         setRefreshing(true);
@@ -1955,7 +1973,7 @@ window.__ModuleLoader__.load({
 
       const keys = Array.isArray(data && data.keys) ? data.keys : [];
 
-      return React.createElement('div', { className: 'dsh-ap-root', style: styles.wrap },
+      return React.createElement('div', { ref: rootRef, className: 'dsh-ap-root', style: styles.wrap },
         React.createElement('div', { style: styles.header },
           React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
           React.createElement('div', { style: { color: 'var(--dsw-alias-state-business-primary)' } },
@@ -2154,6 +2172,8 @@ window.__ModuleLoader__.load({
         .VOzbGW_panel:has(.dsh-ap-root), [role="dialog"]:has(.dsh-ap-root) {
           height: min(860px, calc(100vh - 48px));
           max-height: calc(100vh - 48px);
+          height: min(860px, calc(100dvh - 48px));
+          max-height: calc(100dvh - 48px);
         }
         .VOzbGW_panel:has(.dsh-ap-root) .VOzbGW_options, [role="dialog"]:has(.dsh-ap-root) .VOzbGW_options {
           min-height: 0;
