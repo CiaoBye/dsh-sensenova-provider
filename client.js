@@ -191,7 +191,7 @@ window.__ModuleLoader__.load({
       selectionSummary: '当前选择',
       noSelection: '尚未选择模型',
       keepSelected: '仅保留已选',
-      modelListHint: '按提供商分组；超过 2 个模型的分组默认折叠。',
+      modelListHint: '多个模型按提供商分组；超过 2 个模型的分组默认折叠，单模型直接显示。',
       selectionCount: '已选 {selected} / {total}',
       filteredCount: '当前结果 {n} 个',
       selectAllFiltered: '全选当前结果',
@@ -396,7 +396,7 @@ window.__ModuleLoader__.load({
       selectionSummary: 'Current selection',
       noSelection: 'No models selected',
       keepSelected: 'Keep selected only',
-      modelListHint: 'Grouped by provider; groups with more than 2 models start collapsed.',
+      modelListHint: 'Multiple models are grouped by provider; groups over 2 start collapsed, while single models display directly.',
       selectionCount: '{selected} / {total} selected',
       filteredCount: '{n} results',
       selectAllFiltered: 'Select filtered',
@@ -1144,6 +1144,18 @@ window.__ModuleLoader__.load({
       },
         React.createElement('div', { style: styles.modelVirtualCanvas },
           groups.map(group => {
+            if (group.models.length === 1) {
+              return React.createElement(ModelRow, {
+                key: `model:${group.models[0].id}`,
+                model: group.models[0],
+                t,
+                value,
+                selectedSet,
+                toggleModel,
+                keepOnlyModel,
+                busy,
+              });
+            }
             const selectedCount = group.models.filter(model => selectedSet.has(model.id)).length;
             const collapsed = collapsedGroups.has(group.key);
             const allSelected = value.mode === 'custom' && selectedCount === group.models.length;

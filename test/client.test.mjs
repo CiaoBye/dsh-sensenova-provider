@@ -219,6 +219,7 @@ test('ModelCard renders the master switch, per-model checkboxes, and the enabled
   assert.ok(html.includes('onlyThis'), 'renders one-click single-model selection')
   assert.ok(html.includes('selectAllFiltered') && html.includes('keepFiltered'), 'renders filtered batch actions')
   assert.ok(html.includes('flex:0 0 auto'), 'model groups cannot shrink and clip their rows')
+  assert.equal((html.match(/aria-expanded/g) || []).length, 0, 'single-model providers render directly without accordion headers')
   assert.equal((html.match(/checked/g) || []).length, 1, 'only the enabled model is checked')
 
   // All-mode: the directory is read-only and uses an explicit sync marker;
@@ -230,6 +231,24 @@ test('ModelCard renders the master switch, per-model checkboxes, and the enabled
   }))
   assert.ok(allHtml.includes('catalogBadge'), 'all-mode exposes the catalog-sync marker')
   assert.equal((allHtml.match(/type="checkbox"/g) || []).length, 0, 'all-mode has no misleading disabled checkboxes')
+
+  const groupedHtml = renderToString(React.createElement(ModelCard, {
+    t: key => key,
+    data: {
+      modelMode: 'all',
+      availableModels: [
+        { id: 'qwen3.7-max', name: 'Qwen3.7 Max', enabled: true },
+        { id: 'qwen3.7-plus', name: 'Qwen3.7 Plus', enabled: true },
+        { id: 'qwen3.7-flash', name: 'Qwen3.7 Flash', enabled: true },
+        { id: 'glm-5.2', name: 'GLM-5.2', enabled: true },
+      ],
+    },
+    sel: null,
+    setSel: () => {},
+    busy: null,
+    onSave: () => {},
+  }))
+  assert.equal((groupedHtml.match(/aria-expanded/g) || []).length, 1, 'multi-model providers retain one accordion header')
 })
 
 test('the bundle exposes no literal secrets anywhere', async () => {
