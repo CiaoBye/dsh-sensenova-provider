@@ -20,7 +20,7 @@ window.__ModuleLoader__.load({
     const zh = {
       nav: '账号池切换',
       title: '账号池切换',
-      subtitle: 'OpenCode Go · OpenCode Zen · OpenRouter 账号、模型与自动切换',
+      subtitle: '账号切换工作台 · OpenCode Go · OpenCode Zen · OpenRouter',
       providerOpenCodeGo: 'OpenCode Go',
       providerOpenCode: 'OpenCode Zen',
       providerOpenRouter: 'OpenRouter',
@@ -32,10 +32,24 @@ window.__ModuleLoader__.load({
       paused: '连续失败，已暂停自动刷新',
       refresh: '刷新',
       refreshModels: '刷新模型目录',
-      sectionOverview: '概览',
-      sectionAccounts: '账号与额度',
+      sectionOverview: '账号切换',
+      sectionAccounts: '账号管理',
       sectionModels: '模型目录',
-      sectionRouting: '路由与切换',
+      sectionRouting: '路由设置',
+      settingsTitle: '设置',
+      settingsHint: '模型来源、账号管理和自动接管策略等低频配置集中在这里。',
+      currentSource: '当前来源',
+      sourceHint: '切换来源只改变当前 Provider 上下文，不会修改模型目录或账号配置。',
+      switchWorkspace: '账号切换',
+      switchWorkspaceHint: '优先选择要服务的账号；模型目录和高级策略在设置中管理。',
+      currentAccount: '当前账号',
+      accountPoolSummary: '账号池',
+      usableSummary: '{usable}/{total} 可用',
+      switchSettings: '切号设置',
+      addAccount: '添加账号',
+      manageAccounts: '管理账号',
+      openSettings: '打开设置',
+      backToSwitch: '返回账号切换',
       overviewTitle: 'Provider 概览',
       overviewHint: '先确认账号池健康状态，再进入模型目录或路由设置。',
       accountSummary: '账号状态',
@@ -73,8 +87,10 @@ window.__ModuleLoader__.load({
       takeoverOwnRoute: '自有路由模式 · {route}',
       takeoverWaiting: '等待接管',
       takeoverWaitingHint: '{route} 路由当前由其他插件持有。释放该供应商路由后，本插件会自动接管，历史会话无需任何改动。',
-      takeoverDisabled: 'Provider 池已停用',
-      takeoverDisabledHint: '该 Provider 未启用接管；开启 enabled / takeover 后才会注册路由。',
+      poolDisabled: '账号池已停用',
+      poolDisabledHint: '该 Provider 的账号池已停用，账号不会参与请求和自动切换。',
+      takeoverDisabled: '自动接管已关闭',
+      takeoverDisabledHint: '账号池仍保留配置，但不会主动接管该 Provider 路由。',
       noKeysTitle: '尚未配置 Key',
       noKeysHint: '每个 Key 对应一个供应商账号。在下方「Key 管理」中添加，Key 值请通过凭据填写（设置 → 模型的凭据页，或 ~/.dsh/.credentials.yaml / 环境变量）。',
       activeBadge: '使用中',
@@ -204,7 +220,7 @@ window.__ModuleLoader__.load({
     const en = {
       nav: 'Account pool switcher',
       title: 'Account pool switcher',
-      subtitle: 'Accounts, models, and automatic failover for OpenCode Go, Zen, and OpenRouter',
+      subtitle: 'Account switching workspace for OpenCode Go, Zen, and OpenRouter',
       providerOpenCodeGo: 'OpenCode Go',
       providerOpenCode: 'OpenCode Zen',
       providerOpenRouter: 'OpenRouter',
@@ -216,10 +232,24 @@ window.__ModuleLoader__.load({
       paused: 'repeated failures, auto-refresh paused',
       refresh: 'Refresh',
       refreshModels: 'Refresh models',
-      sectionOverview: 'Overview',
-      sectionAccounts: 'Accounts & usage',
+      sectionOverview: 'Account switcher',
+      sectionAccounts: 'Account management',
       sectionModels: 'Model catalog',
-      sectionRouting: 'Routing & switching',
+      sectionRouting: 'Routing settings',
+      settingsTitle: 'Settings',
+      settingsHint: 'Manage model sources, accounts, and automatic takeover policies here.',
+      currentSource: 'Current source',
+      sourceHint: 'Changing the source only changes the current Provider context; it does not modify model or account configuration.',
+      switchWorkspace: 'Account switcher',
+      switchWorkspaceHint: 'Choose the account that should serve requests first; model catalog and advanced policies live in Settings.',
+      currentAccount: 'Current account',
+      accountPoolSummary: 'Account pool',
+      usableSummary: '{usable}/{total} usable',
+      switchSettings: 'Switching settings',
+      addAccount: 'Add account',
+      manageAccounts: 'Manage accounts',
+      openSettings: 'Open settings',
+      backToSwitch: 'Back to account switcher',
       overviewTitle: 'Provider overview',
       overviewHint: 'Check pool health first, then manage the model catalog or routing rules.',
       accountSummary: 'Account status',
@@ -257,8 +287,10 @@ window.__ModuleLoader__.load({
       takeoverOwnRoute: 'Own route mode · {route}',
       takeoverWaiting: 'Waiting for takeover',
       takeoverWaitingHint: 'The {route} route is currently owned by another plugin. Release that provider route and this plugin takes over automatically — existing conversations keep working unchanged.',
-      takeoverDisabled: 'Provider pool disabled',
-      takeoverDisabledHint: 'This Provider is not enabled for takeover. Enable enabled / takeover before it can register its route.',
+      poolDisabled: 'Account pool disabled',
+      poolDisabledHint: 'The account pool is disabled for this Provider, so its accounts will not serve requests or fail over.',
+      takeoverDisabled: 'Automatic takeover off',
+      takeoverDisabledHint: 'The account pool configuration remains available, but it will not claim this Provider route.',
       noKeysTitle: 'No keys configured',
       noKeysHint: 'Each key is one provider account. Add keys under “Key management” below; paste the literal key into the credentials page (Settings → Models, or ~/.dsh/.credentials.yaml / environment variables).',
       activeBadge: 'in use',
@@ -441,6 +473,13 @@ window.__ModuleLoader__.load({
 
     const styles = {
       wrap: { width: '100%', maxWidth: 'none', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' },
+      header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+      providerContext: { display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) minmax(0, 1.6fr)', gap: 12, alignItems: 'center', border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 8, padding: '9px 12px' },
+      providerContextLabel: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, margin: 0 },
+      providerContextSelect: { width: '100%', border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', borderRadius: 6, padding: '7px 8px', minWidth: 0 },
+      providerContextMeta: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', minWidth: 0 },
+      providerContextStatus: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, whiteSpace: 'nowrap' },
+      providerContextCount: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, whiteSpace: 'nowrap' },
       providerTabs: { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, borderBottom: '1px solid var(--dsw-alias-border-l2)', paddingBottom: 10 },
       providerTab: { minWidth: 0, minHeight: 64, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 3, border: '1px solid var(--dsw-alias-border-l2)', color: 'var(--dsw-alias-label-secondary)', font: 'inherit', cursor: 'pointer', background: 'transparent', borderRadius: 8, padding: '10px 12px', textAlign: 'left' },
       providerTabActive: { borderColor: 'var(--dsw-alias-state-business-primary)', color: 'var(--dsw-alias-label-primary)', background: 'var(--dsw-alias-bg-layer-3)' },
@@ -450,6 +489,19 @@ window.__ModuleLoader__.load({
       sectionTabs: { display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--dsw-alias-border-l2)', paddingBottom: 2 },
       sectionTab: { border: 0, borderBottom: '2px solid transparent', color: 'var(--dsw-alias-label-secondary)', font: 'inherit', cursor: 'pointer', background: 'transparent', padding: '8px 10px', minHeight: 40 },
       sectionTabActive: { color: 'var(--dsw-alias-state-business-primary)', borderBottomColor: 'var(--dsw-alias-state-business-primary)', fontWeight: 600 },
+      settingsHeader: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+      settingsTitle: { fontSize: 15, fontWeight: 600, margin: 0 },
+      settingsHint: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, lineHeight: 1.5, margin: '3px 0 0' },
+      switchLayout: { display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(260px, .75fr)', gap: 12, alignItems: 'start' },
+      activeAccountPanel: { border: '1px solid var(--dsw-alias-state-business-primary)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 10, padding: '16px 18px', minWidth: 0 },
+      activeAccountLabel: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 12, margin: 0 },
+      activeAccountName: { fontSize: 24, fontWeight: 650, lineHeight: 1.25, margin: '6px 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      activeAccountMeta: { color: 'var(--dsw-alias-label-secondary)', fontSize: 12, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      switchStatGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginTop: 14 },
+      switchStat: { borderTop: '1px solid var(--dsw-alias-border-l2)', paddingTop: 8, minWidth: 0 },
+      switchStatValue: { fontSize: 16, fontWeight: 600, margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      switchEmpty: { border: '1px dashed var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-1)', borderRadius: 8, padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 7 },
+      accountListHead: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', marginBottom: 10 },
       hint: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 13, lineHeight: 1.6, margin: 0 },
       error: { color: 'var(--dsw-alias-state-error-primary)', fontSize: 13, lineHeight: 1.6, margin: 0 },
       banner: { border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 10, padding: '12px 14px', fontSize: 13, lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 6 },
@@ -1368,30 +1420,163 @@ window.__ModuleLoader__.load({
       return `${lastSwitch.from ?? '—'} → ${lastSwitch.to ?? '—'} · ${switchReasonLabel(lastSwitch, t)} · ${when}`;
     }
 
+    function routeStatusKind(data) {
+      if (!data || data.enabled === false) return 'pool-disabled';
+      if (data.takeoverEnabled === false || data.takeover === 'disabled') return 'takeover-disabled';
+      if (data.takeover === 'serving') return 'serving';
+      if (data.takeover === 'own-route') return 'own-route';
+      return 'waiting';
+    }
+
+    function routeStatusTitle(data, t) {
+      const route = data && (data.route || data.id);
+      const kind = routeStatusKind(data);
+      if (kind === 'pool-disabled') return t('poolDisabled');
+      if (kind === 'takeover-disabled') return t('takeoverDisabled');
+      if (kind === 'serving') return t('takeoverServing').replace('{route}', route);
+      if (kind === 'own-route') return t('takeoverOwnRoute').replace('{route}', route);
+      return t('takeoverWaiting');
+    }
+
+    function routeStatusDetail(data, t) {
+      const route = data && (data.route || data.id);
+      const kind = routeStatusKind(data);
+      if (kind === 'pool-disabled') return t('poolDisabledHint');
+      if (kind === 'takeover-disabled') return t('takeoverDisabledHint');
+      if (kind === 'waiting') {
+        return `${t('takeoverWaitingHint').replace('{route}', route)}${data && data.takeoverHint ? ` ${data.takeoverHint}` : ''}`;
+      }
+      if (data && data.activeId) {
+        return `${t('activeBanner')}: ${data.activeId} · ${t('preemptNote')}: ${data.preemptAtPercent >= 100 ? t('preemptOff') : data.preemptAtPercent + '%'} · ${t('consecNote')}: ${data.switchAfterConsecutiveFailures > 0 ? data.switchAfterConsecutiveFailures : t('preemptOff')}`;
+      }
+      return t('noActiveKey');
+    }
+
+    function ProviderContext(props) {
+      const { providers, selectedId, selected, t, onChange } = props;
+      const items = Array.isArray(providers) && providers.length > 0
+        ? providers
+        : PROVIDER_IDS.map(id => ({ id }));
+      const keys = Array.isArray(selected && selected.keys) ? selected.keys : [];
+      const healthy = keys.filter(item => item.state === 'healthy').length;
+      return React.createElement('div', { className: 'dsh-ap-provider-context', style: styles.providerContext },
+        React.createElement('div', null,
+          React.createElement('p', { style: styles.providerContextLabel }, t('currentSource')),
+          React.createElement('select', {
+            style: styles.providerContextSelect,
+            value: selectedId,
+            'aria-label': t('currentSource'),
+            onChange: event => onChange(event.target.value),
+          }, items.map(item => React.createElement('option', { key: item.id, value: item.id }, providerLabel(item.id, t)))),
+          React.createElement('p', { style: { ...styles.cardMeta, marginTop: 3 } }, t('sourceHint')),
+        ),
+        React.createElement('div', { className: 'dsh-ap-provider-context-meta', style: styles.providerContextMeta },
+          React.createElement('span', { style: styles.providerContextStatus }, selected ? routeStatusTitle(selected, t) : t('loading')),
+          React.createElement('span', { style: styles.providerContextCount }, `${healthy}/${keys.length} · ${providerHint(selectedId, t)}`),
+        ),
+      );
+    }
+
+    function SwitchWorkspace(props) {
+      const { data, t, keys, tick, busy, refreshing, onKeyAction, onNavigate, onRefresh } = props;
+      const active = keys.find(item => item.active) || null;
+      const healthy = keys.filter(item => item.state === 'healthy').length;
+      return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+        React.createElement('div', { className: 'dsh-ap-switch-layout', style: styles.switchLayout },
+          React.createElement('section', { style: styles.activeAccountPanel },
+            React.createElement('div', { style: styles.panelHead },
+              React.createElement('div', null,
+                React.createElement('h3', { style: styles.panelTitle }, t('switchWorkspace')),
+                React.createElement('p', { style: styles.cardMeta }, t('switchWorkspaceHint')),
+              ),
+              active ? badgeFor(active.state, active.active, t) : null,
+            ),
+            React.createElement('p', { style: styles.activeAccountLabel }, t('currentAccount')),
+            active
+              ? React.createElement(React.Fragment, null,
+                React.createElement('p', { style: styles.activeAccountName }, active.label),
+                React.createElement('p', { style: styles.activeAccountMeta }, `${active.apiKeyEnv} · ${active.state}`),
+              )
+              : React.createElement('div', { style: styles.switchEmpty },
+                React.createElement('strong', null, t('noActiveKey')),
+                React.createElement('p', { style: styles.hint }, t('noKeysTitle')),
+                React.createElement('div', { style: styles.actions },
+                  React.createElement('button', { type: 'button', style: { ...styles.button, ...styles.buttonPrimary }, onClick: () => onNavigate('accounts') }, t('addAccount')),
+                ),
+              ),
+            React.createElement('div', { className: 'dsh-ap-switch-stat-grid', style: styles.switchStatGrid },
+              React.createElement('div', { style: styles.switchStat },
+                React.createElement('p', { style: styles.activeAccountLabel }, t('accountPoolSummary')),
+                React.createElement('p', { style: styles.switchStatValue }, `${healthy}/${keys.length}`),
+              ),
+              React.createElement('div', { style: styles.switchStat },
+                React.createElement('p', { style: styles.activeAccountLabel }, t('recentSwitch')),
+                React.createElement('p', { style: { ...styles.switchStatValue, fontSize: 13 } }, data.lastSwitch ? switchReasonLabel(data.lastSwitch, t) : t('noSwitch')),
+              ),
+            ),
+            React.createElement('div', { style: styles.actions },
+              React.createElement('button', { type: 'button', style: styles.button, disabled: refreshing || busy !== null, onClick: onRefresh }, refreshing ? t('refreshing') : t('refresh')),
+              React.createElement('button', { type: 'button', style: styles.button, onClick: () => onNavigate('accounts') }, t('manageAccounts')),
+              React.createElement('button', { type: 'button', style: styles.button, onClick: () => onNavigate('routing') }, t('switchSettings')),
+            ),
+          ),
+          React.createElement('section', { style: styles.panel },
+            React.createElement('div', { style: styles.panelHead },
+              React.createElement('h3', { style: styles.panelTitle }, t('routeSummary')),
+              React.createElement('span', { style: styles.cardMeta }, data.displayName),
+            ),
+            React.createElement('div', { style: styles.panelRow },
+              React.createElement('span', { style: styles.panelRowLabel }, t('routeSummary')),
+              React.createElement('span', { style: styles.panelRowValue }, routeStatusTitle(data, t)),
+            ),
+            React.createElement('div', { style: styles.panelRow },
+              React.createElement('span', { style: styles.panelRowLabel }, t('poolEnabled')),
+              React.createElement('span', { style: styles.panelRowValue }, data.enabled === false ? t('disabledState') : t('enabledState')),
+            ),
+            React.createElement('div', { style: { ...styles.panelRow, ...styles.panelRowLast } },
+              React.createElement('span', { style: styles.panelRowLabel }, t('takeoverEnabled')),
+              React.createElement('span', { style: styles.panelRowValue }, data.takeoverEnabled === false ? t('disabledState') : t('enabledState')),
+            ),
+            React.createElement('div', { style: styles.actions },
+              React.createElement('button', { type: 'button', style: styles.button, onClick: () => onNavigate('routing') }, t('openSettings')),
+            ),
+          ),
+        ),
+        React.createElement('section', { style: styles.panel },
+          React.createElement('div', { style: styles.accountListHead },
+            React.createElement('h3', { style: styles.panelTitle }, t('accountPoolSummary')),
+            React.createElement('span', { style: styles.cardMeta }, t('usableSummary').replace('{usable}', String(healthy)).replace('{total}', String(keys.length))),
+          ),
+          keys.length === 0
+            ? React.createElement('div', { style: styles.switchEmpty },
+              React.createElement('strong', null, t('noKeysTitle')),
+              React.createElement('p', { style: styles.hint }, t('noKeysHint')),
+              React.createElement('div', { style: styles.actions },
+                React.createElement('button', { type: 'button', style: { ...styles.button, ...styles.buttonPrimary }, onClick: () => onNavigate('accounts') }, t('addAccount')),
+              ),
+            )
+            : React.createElement('div', { className: 'dsh-ap-key-grid', style: styles.keyGrid },
+              keys.map(item => React.createElement(KeyCard, { key: item.id, item, t, tick, busy, onAction: onKeyAction })),
+            ),
+        ),
+      );
+    }
+
     /** Compact route status used across every inner section. */
     function TakeoverStrip(props) {
       const { data, t, keys } = props;
       const [expanded, setExpanded] = React.useState(false);
       if (!data) return null;
-      const takeover = data.takeover;
-      const waiting = takeover === 'waiting';
-      const disabled = takeover === 'disabled';
-      const title = (takeover === 'serving' ? t('takeoverServing')
-        : takeover === 'own-route' ? t('takeoverOwnRoute')
-          : disabled ? t('takeoverDisabled')
-            : t('takeoverWaiting')).replace('{route}', data.route || data.id);
-      const detail = waiting
-        ? `${t('takeoverWaitingHint').replace('{route}', data.route || data.id)}${data.takeoverHint ? ` ${data.takeoverHint}` : ''}`
-        : disabled
-          ? t('takeoverDisabledHint')
-          : data.activeId
-            ? `${t('activeBanner')}: ${data.activeId} · ${t('preemptNote')}: ${data.preemptAtPercent >= 100 ? t('preemptOff') : data.preemptAtPercent + '%'} · ${t('consecNote')}: ${data.switchAfterConsecutiveFailures > 0 ? data.switchAfterConsecutiveFailures : t('preemptOff')}`
-            : t('noActiveKey');
+      const kind = routeStatusKind(data);
+      const waiting = kind === 'waiting';
+      const warning = waiting || kind === 'pool-disabled' || kind === 'takeover-disabled';
+      const title = routeStatusTitle(data, t);
+      const detail = routeStatusDetail(data, t);
       return React.createElement('div', {
-        style: { ...styles.statusStrip, ...(waiting ? styles.statusStripWarn : styles.statusStripOk) },
+        style: { ...styles.statusStrip, ...(warning ? styles.statusStripWarn : styles.statusStripOk) },
       },
         React.createElement('div', { style: styles.statusStripMain },
-          React.createElement('span', { style: { ...styles.statusDot, ...(waiting ? styles.statusDotWarn : styles.statusDotOk) }, 'aria-hidden': 'true' }),
+          React.createElement('span', { style: { ...styles.statusDot, ...(warning ? styles.statusDotWarn : styles.statusDotOk) }, 'aria-hidden': 'true' }),
           React.createElement('span', { style: styles.statusStripText }, title),
           keys.length > 0
             ? React.createElement('span', { style: styles.statusStripMeta }, `${keys.length} · ${data.activeId || '—'}`)
@@ -1423,9 +1608,7 @@ window.__ModuleLoader__.load({
         ? (Array.isArray(data.configuredModels) ? data.configuredModels.length : 0)
         : models.length;
       const active = keys.find(item => item.active) || null;
-      const routeText = data.takeover === 'serving' ? t('takeoverServing').replace('{route}', data.route)
-        : data.takeover === 'disabled' ? t('takeoverDisabled')
-          : t('takeoverWaiting');
+      const routeText = routeStatusTitle(data, t);
       return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
         React.createElement('div', { style: styles.panel },
           React.createElement('div', { style: styles.panelHead },
@@ -1502,7 +1685,7 @@ window.__ModuleLoader__.load({
               React.createElement('h3', { style: styles.panelTitle }, t('routeDetail')),
               React.createElement('p', { style: styles.cardMeta }, `${data.displayName} · ${data.route}`),
             ),
-            React.createElement('span', { style: styles.badge }, data.takeover),
+            React.createElement('span', { style: styles.badge }, routeStatusTitle(data, t)),
           ),
           React.createElement('div', { style: styles.panelRow },
             React.createElement('span', { style: styles.panelRowLabel }, t('poolEnabled')),
@@ -1553,7 +1736,7 @@ window.__ModuleLoader__.load({
       const { t, api } = props;
       const [rootData, setRootData] = React.useState(null);
       const [providerId, setProviderId] = React.useState('opencode-go');
-      const [activeSection, setActiveSection] = React.useState('overview');
+      const [activeSection, setActiveSection] = React.useState('switch');
       const [error, setError] = React.useState(null);
       const [failures, setFailures] = React.useState(0);
       const [pollMs, setPollMs] = React.useState(30000);
@@ -1701,11 +1884,11 @@ window.__ModuleLoader__.load({
         runAction(async remote => remote.refreshModels(selectedId), null);
       };
 
-      const takeover = data ? data.takeover : null;
       const keys = Array.isArray(data && data.keys) ? data.keys : [];
 
       return React.createElement('div', { style: styles.wrap },
-        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+        React.createElement('div', { style: styles.header },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
           React.createElement('div', { style: { color: 'var(--dsw-alias-state-business-primary)' } },
             React.createElement(GoMark, { size: 24 }),
           ),
@@ -1713,38 +1896,53 @@ window.__ModuleLoader__.load({
             React.createElement('h2', { style: styles.title }, t('title')),
             React.createElement('p', { style: styles.subtitle }, t('subtitle')),
           ),
+          ),
         ),
-        React.createElement('div', { className: 'dsh-ap-provider-tabs', style: styles.providerTabs, role: 'tablist', 'aria-label': t('title') },
-          PROVIDER_IDS.map(id => React.createElement('button', {
-            key: id,
-            type: 'button',
-            role: 'tab',
-            'aria-selected': selectedId === id,
-            style: {
-              ...styles.providerTab,
-              ...(selectedId === id ? styles.providerTabActive : {}),
-            },
-            onClick: () => setProviderId(id),
-          },
-            React.createElement('span', { style: { fontWeight: 600 } }, providerLabel(id, t)),
-            React.createElement('span', { style: styles.providerHint }, providerHint(id, t)),
-          )),
-        ),
-        React.createElement('div', { className: 'dsh-ap-section-tabs', style: styles.sectionTabs, role: 'tablist', 'aria-label': t('title') },
+        React.createElement(ProviderContext, {
+          providers,
+          selectedId,
+          selected,
+          t,
+          onChange: setProviderId,
+        }),
+        React.createElement('div', { className: 'dsh-ap-main-tabs', style: styles.sectionTabs, role: 'tablist', 'aria-label': t('title') },
           [
-            ['overview', t('sectionOverview')],
-            ['accounts', t('sectionAccounts')],
-            ['models', t('sectionModels')],
-            ['routing', t('sectionRouting')],
+            ['switch', t('sectionOverview')],
+            ['settings', t('settingsTitle')],
           ].map(([id, label]) => React.createElement('button', {
             key: id,
             type: 'button',
             role: 'tab',
-            'aria-selected': activeSection === id,
-            style: { ...styles.sectionTab, ...(activeSection === id ? styles.sectionTabActive : {}) },
-            onClick: () => setActiveSection(id),
+            'aria-selected': id === 'switch' ? activeSection === 'switch' : activeSection !== 'switch',
+            style: { ...styles.sectionTab, ...((id === 'switch' ? activeSection === 'switch' : activeSection !== 'switch') ? styles.sectionTabActive : {}) },
+            onClick: () => setActiveSection(id === 'switch' ? 'switch' : (activeSection === 'switch' ? 'models' : activeSection)),
           }, label)),
         ),
+        activeSection !== 'switch'
+          ? React.createElement('div', null,
+            React.createElement('div', { style: styles.settingsHeader },
+              React.createElement('div', null,
+                React.createElement('h3', { style: styles.settingsTitle }, t('settingsTitle')),
+                React.createElement('p', { style: styles.settingsHint }, t('settingsHint')),
+              ),
+              React.createElement('button', { type: 'button', style: styles.button, onClick: () => setActiveSection('switch') }, t('backToSwitch')),
+            ),
+            React.createElement('div', { className: 'dsh-ap-settings-tabs', style: styles.sectionTabs, role: 'tablist', 'aria-label': t('settingsTitle') },
+              [
+                ['accounts', t('sectionAccounts')],
+                ['models', t('sectionModels')],
+                ['routing', t('sectionRouting')],
+              ].map(([id, label]) => React.createElement('button', {
+                key: id,
+                type: 'button',
+                role: 'tab',
+                'aria-selected': activeSection === id,
+                style: { ...styles.sectionTab, ...(activeSection === id ? styles.sectionTabActive : {}) },
+                onClick: () => setActiveSection(id),
+              }, label)),
+            ),
+          )
+          : null,
         data === null && !error
           ? React.createElement('p', { style: styles.hint }, t('loading'))
           : null,
@@ -1759,8 +1957,13 @@ window.__ModuleLoader__.load({
           ? null
           : React.createElement(React.Fragment, null,
             React.createElement(TakeoverStrip, { data, t, keys }),
-            activeSection === 'overview'
-              ? React.createElement(OverviewPanel, { data, t, onNavigate: setActiveSection })
+            activeSection === 'switch'
+              ? React.createElement(SwitchWorkspace, {
+                data, t, keys, tick, busy, refreshing,
+                onKeyAction,
+                onNavigate: setActiveSection,
+                onRefresh: load,
+              })
               : activeSection === 'models'
                 ? React.createElement(ModelCard, {
                   t, data, sel: modelSel, setSel: setModelSel, busy,
@@ -1824,7 +2027,9 @@ window.__ModuleLoader__.load({
             React.createElement('div', { style: styles.actions },
               React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
                 React.createElement('button', { style: styles.button, disabled: busy !== null || refreshing, onClick: load }, refreshing ? t('refreshing') : t('refresh')),
-                React.createElement('button', { style: styles.button, disabled: busy !== null || refreshing, onClick: onRefreshModels }, t('refreshModels')),
+                activeSection === 'models'
+                  ? React.createElement('button', { style: styles.button, disabled: busy !== null || refreshing, onClick: onRefreshModels }, t('refreshModels'))
+                  : null,
                 loadedAt
                   ? React.createElement('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-tertiary)' } }, `${t('updatedAt')} ${loadedAt.toLocaleTimeString()}`)
                   : null,
@@ -1868,11 +2073,17 @@ window.__ModuleLoader__.load({
       // account-pool workspace collapse cleanly on narrower settings panes.
       style.textContent = `
         button:has(.dsh-ap-nav-mark) > svg { display: none; }
+        .dsh-ap-provider-context { grid-template-columns: minmax(220px, 1fr) minmax(0, 1.6fr); }
+        .dsh-ap-switch-layout { grid-template-columns: minmax(0, 1.25fr) minmax(260px, .75fr); }
+        .dsh-ap-switch-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .dsh-ap-overview-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .dsh-ap-overview-columns { grid-template-columns: minmax(0, 1.4fr) minmax(240px, .8fr); }
         .dsh-ap-model-workspace { grid-template-columns: 190px minmax(0, 1fr) 220px; }
         .dsh-ap-key-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         @media (max-width: 980px) {
+          .dsh-ap-provider-context { grid-template-columns: 1fr; }
+          .dsh-ap-provider-context-meta { justify-content: flex-start; }
+          .dsh-ap-switch-layout { grid-template-columns: 1fr; }
           .dsh-ap-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .dsh-ap-overview-columns { grid-template-columns: 1fr; }
           .dsh-ap-model-workspace { grid-template-columns: 180px minmax(0, 1fr); }
@@ -1880,6 +2091,8 @@ window.__ModuleLoader__.load({
           .dsh-ap-key-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 640px) {
+          .dsh-ap-provider-context { grid-template-columns: 1fr; }
+          .dsh-ap-switch-stat-grid { grid-template-columns: 1fr; }
           .dsh-ap-provider-tabs { grid-template-columns: 1fr; }
           .dsh-ap-overview-grid { grid-template-columns: 1fr; }
           .dsh-ap-model-workspace { grid-template-columns: 1fr; }
