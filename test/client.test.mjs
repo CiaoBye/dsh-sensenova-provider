@@ -221,14 +221,15 @@ test('ModelCard renders the master switch, per-model checkboxes, and the enabled
   assert.ok(html.includes('flex:0 0 auto'), 'model groups cannot shrink and clip their rows')
   assert.equal((html.match(/checked/g) || []).length, 1, 'only the enabled model is checked')
 
-  // All-mode: master and every per-model checkbox render checked + locked.
+  // All-mode: the directory is read-only and uses an explicit sync marker;
+  // individual checkboxes are reserved for custom selection.
   const allHtml = renderToString(React.createElement(ModelCard, {
     t: key => key, data,
     sel: { mode: 'all', ids: ['deepseek-v4-pro', 'glm-5.2'] },
     setSel: () => {}, busy: null, onSave: () => {},
   }))
-  assert.equal((allHtml.match(/checked/g) || []).length, 3, 'master plus both models checked in all-mode')
-  assert.ok(allHtml.includes('disabled'), 'per-model checkboxes are locked in all-mode')
+  assert.ok(allHtml.includes('catalogBadge'), 'all-mode exposes the catalog-sync marker')
+  assert.equal((allHtml.match(/type="checkbox"/g) || []).length, 0, 'all-mode has no misleading disabled checkboxes')
 })
 
 test('the bundle exposes no literal secrets anywhere', async () => {

@@ -152,12 +152,20 @@ window.__ModuleLoader__.load({
       selectionMode: '选择模式',
       allMode: '跟随全部模型',
       customMode: '自定义选择',
+      allModeHint: '目录同步模式：新模型自动可用',
+      catalogBadge: '目录同步',
+      selectedBadge: '已选',
+      selectionSummary: '当前选择',
+      noSelection: '尚未选择模型',
+      keepSelected: '仅保留已选',
+      modelListHint: '点击分组标题展开或折叠；列表按需渲染。',
       selectionCount: '已选 {selected} / {total}',
       filteredCount: '当前结果 {n} 个',
       selectAllFiltered: '全选当前结果',
       clearFiltered: '取消当前结果',
       keepFiltered: '只保留当前结果',
       clearSelection: '清空选择',
+      resetFilters: '重置筛选',
       expandAll: '全部展开',
       collapseAll: '全部折叠',
       onlyThis: '仅保留此模型',
@@ -314,12 +322,20 @@ window.__ModuleLoader__.load({
       selectionMode: 'Selection mode',
       allMode: 'Follow all models',
       customMode: 'Custom selection',
+      allModeHint: 'Catalog sync: new models become available automatically',
+      catalogBadge: 'catalog sync',
+      selectedBadge: 'selected',
+      selectionSummary: 'Current selection',
+      noSelection: 'No models selected',
+      keepSelected: 'Keep selected only',
+      modelListHint: 'Click a group header to expand or collapse it; rows are rendered on demand.',
       selectionCount: '{selected} / {total} selected',
       filteredCount: '{n} results',
       selectAllFiltered: 'Select filtered',
       clearFiltered: 'Clear filtered',
       keepFiltered: 'Keep filtered only',
       clearSelection: 'Clear selection',
+      resetFilters: 'Reset filters',
       expandAll: 'Expand all',
       collapseAll: 'Collapse all',
       onlyThis: 'Keep only this',
@@ -458,7 +474,27 @@ window.__ModuleLoader__.load({
       compactInput: { flex: '1 1 260px', border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', borderRadius: 6, padding: '5px 10px', minWidth: 0 },
       compactSelect: { flex: '0 1 170px', border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', borderRadius: 6, padding: '5px 8px', minWidth: 0 },
       modelToolbar: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
-      modelList: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 620, overflowY: 'auto', paddingRight: 4 },
+      modelDirectoryHead: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+      modelDirectoryControls: { display: 'flex', gap: 8, alignItems: 'center', flex: '1 1 420px', minWidth: 0 },
+      modelDirectorySearch: { flex: '1 1 300px', minWidth: 180, border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', borderRadius: 7, padding: '8px 10px' },
+      modelModeCompact: { display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' },
+      modelWorkspace: { display: 'grid', gridTemplateColumns: '190px minmax(0, 1fr) 220px', gap: 12, alignItems: 'start', minWidth: 0 },
+      modelFilterRail: { display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 12px', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1)', position: 'sticky', top: 8 },
+      modelFilterLabel: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, margin: 0 },
+      modelFilterSelect: { width: '100%', border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', borderRadius: 6, padding: '7px 8px', minWidth: 0 },
+      modelFilterBlock: { display: 'flex', flexDirection: 'column', gap: 5 },
+      modelBulkBar: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: '8px 0', position: 'sticky', top: 0, zIndex: 10, background: 'var(--dsw-alias-bg-layer-3)' },
+      modelResultsColumn: { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 },
+      modelList: { display: 'flex', flexDirection: 'column', gap: 0, height: 'min(66vh, 680px)', minHeight: 340, overflowY: 'auto', paddingRight: 4, border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-3)' },
+      modelVirtualCanvas: { position: 'relative', width: '100%' },
+      modelVirtualSlot: { position: 'absolute', left: 0, right: 0, padding: '0 8px', boxSizing: 'border-box' },
+      modelVirtualGroup: { height: 42, display: 'flex', alignItems: 'stretch', borderBottom: '1px solid var(--dsw-alias-border-l2)' },
+      modelVirtualRow: { height: 66, boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, padding: '6px 4px', borderBottom: '1px solid var(--dsw-alias-border-l2)' },
+      modelSelectionPanel: { display: 'flex', flexDirection: 'column', gap: 8, padding: '10px 12px', border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, background: 'var(--dsw-alias-bg-layer-1)', position: 'sticky', top: 8, minWidth: 0 },
+      modelSelectionCount: { fontSize: 22, fontWeight: 650, margin: 0 },
+      modelSelectionList: { display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 220, overflowY: 'auto' },
+      modelSelectionItem: { fontSize: 12, color: 'var(--dsw-alias-label-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      modelSyncMark: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 18, height: 18, borderRadius: 5, color: 'var(--dsw-alias-state-business-primary)', border: '1px solid var(--dsw-alias-state-business-primary)', fontSize: 11, flex: 'none' },
       // Keep accordion sections at their natural height. Without this, a
       // tall model group is flex-shrunk to the available list height when
       // many groups are expanded, then overflow:hidden clips its rows.
@@ -900,6 +936,116 @@ window.__ModuleLoader__.load({
       return Number.isFinite(model && model.cost && model.cost.input) ? model.cost.input : Number.POSITIVE_INFINITY;
     }
 
+    function ModelRow(props) {
+      const { model, t, value, selectedSet, toggleModel, busy } = props;
+      const selected = value.mode === 'all' || selectedSet.has(model.id);
+      const tags = model.tags.slice(0, 3);
+      const price = modelPriceLabel(model, t);
+      const priceShort = modelPriceShort(model, t);
+      const context = modelContextLabel(model, t);
+      return React.createElement('div', { style: styles.modelVirtualRow },
+        React.createElement('label', { style: styles.modelItemLabel, title: model.id },
+          value.mode === 'all'
+            ? React.createElement('span', { style: styles.modelSyncMark, title: t('allModeHint'), 'aria-label': t('catalogBadge') }, '✓')
+            : React.createElement('input', {
+              type: 'checkbox',
+              style: { width: 15, height: 15, margin: 0, flex: 'none', cursor: 'pointer', accentColor: 'var(--dsw-alias-state-business-primary)' },
+              checked: selected,
+              disabled: busy !== null,
+              'aria-label': model.name,
+              onChange: () => toggleModel(model.id),
+            }),
+          React.createElement('span', { style: styles.modelItemInfo },
+            React.createElement('span', { style: styles.modelItemName }, model.name),
+            React.createElement('span', { style: styles.modelItemId }, model.id),
+          ),
+        ),
+        React.createElement('div', { style: styles.modelMeta },
+          tags.map(tag => React.createElement('span', { key: tag, style: styles.badge }, tagLabel(tag, t))),
+          priceShort && !tags.includes('free') ? React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-tertiary)' }, title: price }, priceShort) : null,
+          context ? React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-tertiary)' } }, context) : null,
+        ),
+      );
+    }
+
+    /**
+     * Fixed-height windowed model list. OpenRouter can expose hundreds of
+     * rows; only the viewport plus a small overscan is mounted, while group
+     * headers remain ordinary accessible buttons.
+     */
+    function VirtualModelList(props) {
+      const { groups, collapsedGroups, setCollapsedGroups, selectedSet, value, toggleModel, busy, t } = props;
+      const viewportRef = React.useRef(null);
+      const [scrollTop, setScrollTop] = React.useState(0);
+      const groupHeight = 42;
+      const rowHeight = 66;
+      const items = React.useMemo(() => {
+        const result = [];
+        for (const group of groups) {
+          result.push({ type: 'group', group });
+          if (!collapsedGroups.has(group.key)) {
+            for (const model of group.models) result.push({ type: 'model', group, model });
+          }
+        }
+        return result;
+      }, [collapsedGroups, groups]);
+      const offsets = React.useMemo(() => {
+        let top = 0;
+        return items.map(item => {
+          const offset = top;
+          top += item.type === 'group' ? groupHeight : rowHeight;
+          return offset;
+        });
+      }, [groupHeight, items, rowHeight]);
+      const totalHeight = offsets.length === 0
+        ? 0
+        : offsets[offsets.length - 1] + (items[items.length - 1].type === 'group' ? groupHeight : rowHeight);
+      const overscan = 6;
+      const first = Math.max(0, Math.floor(scrollTop / rowHeight) - overscan);
+      const last = Math.min(items.length, first + 18 + overscan * 2);
+      React.useEffect(() => {
+        setScrollTop(0);
+        if (viewportRef.current) viewportRef.current.scrollTop = 0;
+      }, [groups]);
+      return React.createElement('div', {
+        ref: viewportRef,
+        style: styles.modelList,
+        onScroll: event => setScrollTop(event.currentTarget.scrollTop),
+        'aria-label': t('sectionModels'),
+      },
+        React.createElement('div', { style: { ...styles.modelVirtualCanvas, height: totalHeight } },
+          items.slice(first, last).map((item, relativeIndex) => {
+            const index = first + relativeIndex;
+            if (item.type === 'group') {
+              const group = item.group;
+              const selectedCount = group.models.filter(model => selectedSet.has(model.id)).length;
+              const collapsed = collapsedGroups.has(group.key);
+              return React.createElement('div', { key: `group:${group.key}`, style: { ...styles.modelVirtualSlot, ...styles.modelVirtualGroup, top: offsets[index] } },
+                React.createElement('button', {
+                  type: 'button',
+                  style: styles.modelGroupHead,
+                  'aria-expanded': !collapsed,
+                  onClick: () => {
+                    const next = new Set(collapsedGroups);
+                    if (next.has(group.key)) next.delete(group.key);
+                    else next.add(group.key);
+                    setCollapsedGroups(next);
+                  },
+                },
+                  React.createElement('span', { style: { fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                    `${t('modelGroupCount').replace('{label}', group.label).replace('{n}', String(group.models.length))}${value.mode === 'custom' && selectedCount > 0 ? ` · ${t('selectedBadge')} ${selectedCount}` : ''}`),
+                  React.createElement('span', { style: styles.cardMeta, 'aria-hidden': 'true' }, collapsed ? '▶' : '▼'),
+                ),
+              );
+            }
+            return React.createElement('div', { key: item.model.id, style: { ...styles.modelVirtualSlot, top: offsets[index] } },
+              React.createElement(ModelRow, { model: item.model, t, value, selectedSet, toggleModel, busy }),
+            );
+          }),
+        ),
+      );
+    }
+
     /**
      * Model selection UI. The persisted contract remains modelMode/models, but
      * the UI keeps selection and discovery separate: custom mode supports
@@ -969,15 +1115,12 @@ window.__ModuleLoader__.load({
         return result;
       }, [filtered]);
       const selectedSet = new Set(value.mode === 'all' ? available.map(model => model.id) : value.ids);
+      const selectedModels = available.filter(model => selectedSet.has(model.id));
       const selectedCount = value.mode === 'all' ? available.length : value.ids.length;
       const staleCount = value.mode === 'custom'
         ? value.ids.filter(id => !available.some(model => model.id === id)).length
         : 0;
       const filteredIds = filtered.map(model => model.id);
-      const checkStyle = {
-        width: 15, height: 15, margin: 0, flex: 'none', cursor: 'pointer',
-        accentColor: 'var(--dsw-alias-state-business-primary)',
-      };
       const setCustom = ids => setSel({ mode: 'custom', ids: [...new Set(ids)] });
       const switchToCustom = () => setCustom(value.mode === 'all' ? available.map(model => model.id) : value.ids);
       const toggleModel = id => {
@@ -991,13 +1134,19 @@ window.__ModuleLoader__.load({
         }
         onSave({ modelMode: value.mode, models: value.mode === 'all' ? [] : value.ids });
       };
-      React.useEffect(() => {
+      const resetFilters = () => {
         setQuery('');
         setProviderFilter('all');
         setTagFilter('all');
         setSortBy('provider');
-        setCollapsedGroups(new Set());
+      };
+      React.useEffect(() => {
+        resetFilters();
+        setCollapsedGroups(data && data.id === 'openrouter' ? new Set(groups.map(group => group.key)) : new Set());
       }, [data && data.id]);
+      React.useEffect(() => {
+        if (query.trim() || providerFilter !== 'all' || tagFilter !== 'all') setCollapsedGroups(new Set());
+      }, [providerFilter, query, tagFilter]);
       return React.createElement('div', { style: styles.card },
         React.createElement('div', { style: styles.cardHead },
           React.createElement('div', null,
@@ -1013,181 +1162,160 @@ window.__ModuleLoader__.load({
         available.length === 0
           ? React.createElement('p', { style: styles.hint }, t('modelUnavailable'))
           : React.createElement(React.Fragment, null,
-            React.createElement('div', { style: styles.modelMode },
-              React.createElement('span', { style: styles.cardMeta }, t('selectionMode')),
-              React.createElement('label', { style: { ...styles.modelItemLabel, flex: '0 1 auto' } },
-                React.createElement('input', {
-                  type: 'checkbox',
-                  style: checkStyle,
-                  checked: value.mode === 'all',
+            React.createElement('div', { style: styles.modelDirectoryHead },
+              React.createElement('div', { style: styles.modelModeCompact },
+                React.createElement('span', { style: styles.cardMeta }, t('selectionMode')),
+                React.createElement('button', {
+                  type: 'button',
+                  style: { ...styles.modelModeButton, ...(value.mode === 'all' ? styles.buttonPrimary : {}) },
+                  'aria-pressed': value.mode === 'all',
                   disabled: busy !== null,
-                  onChange: event => event.target.checked
-                    ? setSel({ mode: 'all', ids: [] })
-                    : setCustom(value.mode === 'all' ? available.map(model => model.id) : value.ids),
+                  onClick: () => setSel({ mode: 'all', ids: [] }),
+                }, t('allMode')),
+                React.createElement('button', {
+                  type: 'button',
+                  style: { ...styles.modelModeButton, ...(value.mode === 'custom' ? styles.buttonPrimary : {}) },
+                  'aria-pressed': value.mode === 'custom',
+                  disabled: busy !== null,
+                  onClick: switchToCustom,
+                }, t('customMode')),
+              ),
+              React.createElement('div', { style: styles.modelDirectoryControls },
+                React.createElement('input', {
+                  type: 'search',
+                  style: styles.modelDirectorySearch,
+                  placeholder: t('modelSearch'),
+                  'aria-label': t('modelSearch'),
+                  value: query,
+                  onChange: event => setQuery(event.target.value),
                 }),
-                React.createElement('span', null, t('allModels')),
-              ),
-              React.createElement('button', {
-                type: 'button',
-                style: { ...styles.modelModeButton, ...(value.mode === 'all' ? styles.buttonPrimary : {}) },
-                'aria-pressed': value.mode === 'all',
-                disabled: busy !== null,
-                onClick: () => setSel({ mode: 'all', ids: [] }),
-              }, t('allMode')),
-              React.createElement('button', {
-                type: 'button',
-                style: { ...styles.modelModeButton, ...(value.mode === 'custom' ? styles.buttonPrimary : {}) },
-                'aria-pressed': value.mode === 'custom',
-                disabled: busy !== null,
-                onClick: switchToCustom,
-              }, t('customMode')),
-            ),
-            React.createElement('div', { style: styles.modelToolbar },
-              React.createElement('input', {
-                type: 'search',
-                style: styles.compactInput,
-                placeholder: t('modelSearch'),
-                'aria-label': t('modelSearch'),
-                value: query,
-                onChange: event => setQuery(event.target.value),
-              }),
-              React.createElement('select', {
-                style: styles.compactSelect,
-                'aria-label': t('providerFilter'),
-                value: providerFilter,
-                onChange: event => setProviderFilter(event.target.value),
-              },
-                React.createElement('option', { value: 'all' }, t('allProviders')),
-                providerOptions.map(([key, label]) => React.createElement('option', { key, value: key }, label)),
-              ),
-              React.createElement('select', {
-                style: styles.compactSelect,
-                'aria-label': t('capabilityFilter'),
-                value: tagFilter,
-                onChange: event => setTagFilter(event.target.value),
-              },
-                React.createElement('option', { value: 'all' }, t('allCapabilities')),
-                availableTags.map(tag => React.createElement('option', { key: tag, value: tag }, tagLabel(tag, t))),
-              ),
-              React.createElement('select', {
-                style: styles.compactSelect,
-                'aria-label': t('sortBy'),
-                value: sortBy,
-                onChange: event => setSortBy(event.target.value),
-              },
-                React.createElement('option', { value: 'provider' }, `${t('sortBy')}: ${t('sortProvider')}`),
-                React.createElement('option', { value: 'name' }, `${t('sortBy')}: ${t('sortName')}`),
-                React.createElement('option', { value: 'cost' }, `${t('sortBy')}: ${t('sortCost')}`),
-                React.createElement('option', { value: 'context' }, `${t('sortBy')}: ${t('sortContext')}`),
               ),
             ),
-            React.createElement('div', { style: styles.modelToolbar },
-              React.createElement('span', { style: styles.cardMeta }, t('filteredCount').replace('{n}', String(filtered.length))),
-              React.createElement('button', {
-                type: 'button',
-                style: { ...styles.button, ...(value.mode === 'custom' ? {} : styles.buttonDisabled) },
-                disabled: busy !== null || value.mode !== 'custom',
-                onClick: () => setCustom([...value.ids, ...filteredIds]),
-              }, t('selectAllFiltered')),
-              React.createElement('button', {
-                type: 'button',
-                style: { ...styles.button, ...(value.mode === 'custom' ? {} : styles.buttonDisabled) },
-                disabled: busy !== null || value.mode !== 'custom',
-                onClick: () => setCustom(value.ids.filter(id => !filteredIds.includes(id))),
-              }, t('clearFiltered')),
-              React.createElement('button', {
-                type: 'button',
-                style: styles.button,
-                disabled: busy !== null || filteredIds.length === 0,
-                onClick: () => setCustom(filteredIds),
-              }, t('keepFiltered')),
-              React.createElement('button', {
-                type: 'button',
-                style: styles.button,
-                disabled: busy !== null || value.mode !== 'custom',
-                onClick: () => setCustom([]),
-              }, t('clearSelection')),
-              React.createElement('button', {
-                type: 'button',
-                style: styles.button,
-                disabled: busy !== null || groups.length === 0,
-                onClick: () => setCollapsedGroups(new Set()),
-              }, t('expandAll')),
-              React.createElement('button', {
-                type: 'button',
-                style: styles.button,
-                disabled: busy !== null || groups.length === 0,
-                onClick: () => setCollapsedGroups(new Set(groups.map(group => group.key))),
-              }, t('collapseAll')),
-            ),
-            staleCount > 0
-              ? React.createElement('p', { style: styles.error }, t('staleSelection').replace('{n}', String(staleCount)))
-              : null,
-            filtered.length === 0
-              ? React.createElement('p', { style: styles.hint }, t('noFilteredModels'))
-              : React.createElement('div', { style: styles.modelList },
-                groups.map(group => React.createElement('section', { key: group.key, style: styles.modelGroup },
+            React.createElement('div', { className: 'dsh-ap-model-workspace', style: styles.modelWorkspace },
+              React.createElement('aside', { className: 'dsh-ap-model-filter', style: styles.modelFilterRail, 'aria-label': t('capabilityFilter') },
+                React.createElement('div', { style: styles.modelFilterBlock },
+                  React.createElement('p', { style: styles.modelFilterLabel }, t('providerFilter')),
+                  React.createElement('select', {
+                    style: styles.modelFilterSelect,
+                    'aria-label': t('providerFilter'),
+                    value: providerFilter,
+                    onChange: event => setProviderFilter(event.target.value),
+                  },
+                    React.createElement('option', { value: 'all' }, t('allProviders')),
+                    providerOptions.map(([key, label]) => React.createElement('option', { key, value: key }, label)),
+                  ),
+                ),
+                React.createElement('div', { style: styles.modelFilterBlock },
+                  React.createElement('p', { style: styles.modelFilterLabel }, t('capabilityFilter')),
+                  React.createElement('select', {
+                    style: styles.modelFilterSelect,
+                    'aria-label': t('capabilityFilter'),
+                    value: tagFilter,
+                    onChange: event => setTagFilter(event.target.value),
+                  },
+                    React.createElement('option', { value: 'all' }, t('allCapabilities')),
+                    availableTags.map(tag => React.createElement('option', { key: tag, value: tag }, tagLabel(tag, t))),
+                  ),
+                ),
+                React.createElement('div', { style: styles.modelFilterBlock },
+                  React.createElement('p', { style: styles.modelFilterLabel }, t('sortBy')),
+                  React.createElement('select', {
+                    style: styles.modelFilterSelect,
+                    'aria-label': t('sortBy'),
+                    value: sortBy,
+                    onChange: event => setSortBy(event.target.value),
+                  },
+                    React.createElement('option', { value: 'provider' }, t('sortProvider')),
+                    React.createElement('option', { value: 'name' }, t('sortName')),
+                    React.createElement('option', { value: 'cost' }, t('sortCost')),
+                    React.createElement('option', { value: 'context' }, t('sortContext')),
+                  ),
+                ),
+                React.createElement('span', { style: styles.cardMeta }, t('modelListHint')),
+                React.createElement('button', { type: 'button', style: styles.button, onClick: resetFilters }, t('resetFilters')),
+                React.createElement('div', { style: styles.actions },
+                  React.createElement('button', { type: 'button', style: styles.button, disabled: groups.length === 0, onClick: () => setCollapsedGroups(new Set()) }, t('expandAll')),
+                  React.createElement('button', { type: 'button', style: styles.button, disabled: groups.length === 0, onClick: () => setCollapsedGroups(new Set(groups.map(group => group.key))) }, t('collapseAll')),
+                ),
+              ),
+              React.createElement('div', { style: styles.modelResultsColumn },
+                React.createElement('div', { style: styles.modelBulkBar },
+                  React.createElement('span', { style: styles.cardMeta }, t('filteredCount').replace('{n}', String(filtered.length))),
                   React.createElement('button', {
                     type: 'button',
-                    style: styles.modelGroupHead,
-                    'aria-expanded': !collapsedGroups.has(group.key),
-                    onClick: () => {
-                      const next = new Set(collapsedGroups);
-                      if (next.has(group.key)) next.delete(group.key);
-                      else next.add(group.key);
-                      setCollapsedGroups(next);
-                    },
-                  },
-                    React.createElement('span', { style: { fontWeight: 600 } }, t('modelGroupCount').replace('{label}', group.label).replace('{n}', String(group.models.length))),
-                    React.createElement('span', { style: styles.cardMeta }, collapsedGroups.has(group.key) ? '▶' : '▼'),
-                  ),
-                  collapsedGroups.has(group.key)
-                    ? null
-                    : React.createElement('div', { style: styles.modelGroupBody }, group.models.map(model => {
-                      const selected = value.mode === 'all' || selectedSet.has(model.id);
-                      const tags = model.tags.slice(0, 4);
-                      const price = modelPriceLabel(model, t);
-                      const priceShort = modelPriceShort(model, t);
-                      const context = modelContextLabel(model, t);
-                      return React.createElement('div', { key: model.id, style: styles.modelItem },
-                        React.createElement('label', { style: styles.modelItemLabel, title: model.id },
-                          React.createElement('input', {
-                            type: 'checkbox',
-                            style: checkStyle,
-                            checked: selected,
-                            disabled: busy !== null || value.mode === 'all',
-                            onChange: () => toggleModel(model.id),
-                          }),
-                          React.createElement('span', { style: styles.modelItemInfo },
-                            React.createElement('span', { style: styles.modelItemName }, model.name),
-                            React.createElement('span', { style: styles.modelItemId }, model.id),
-                          ),
-                        ),
-                        React.createElement('div', { style: styles.modelMeta },
-                          tags.map(tag => React.createElement('span', { key: tag, style: styles.badge }, tagLabel(tag, t))),
-                          priceShort && !tags.includes('free') ? React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-tertiary)' }, title: price }, priceShort) : null,
-                          context ? React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-tertiary)' } }, context) : null,
-                        ),
-                        React.createElement('button', {
-                          type: 'button',
-                          style: { ...styles.button, padding: '3px 8px', ...(busy !== null ? styles.buttonDisabled : {}) },
-                          disabled: busy !== null,
-                          'aria-label': `${t('onlyThis')}: ${model.name}`,
-                          onClick: () => setCustom([model.id]),
-                        }, t('onlyThis')),
-                      );
-                    })),
-                )),
+                    style: { ...styles.button, ...(value.mode === 'custom' ? {} : styles.buttonDisabled) },
+                    disabled: busy !== null || value.mode !== 'custom',
+                    onClick: () => setCustom([...value.ids, ...filteredIds]),
+                  }, t('selectAllFiltered')),
+                  React.createElement('button', {
+                    type: 'button',
+                    style: { ...styles.button, ...(value.mode === 'custom' ? {} : styles.buttonDisabled) },
+                    disabled: busy !== null || value.mode !== 'custom',
+                    onClick: () => setCustom(value.ids.filter(id => !filteredIds.includes(id))),
+                  }, t('clearFiltered')),
+                  React.createElement('button', {
+                    type: 'button',
+                    style: styles.button,
+                    disabled: busy !== null || filteredIds.length === 0,
+                    onClick: () => setCustom(filteredIds),
+                  }, t('keepFiltered')),
+                ),
+                staleCount > 0
+                  ? React.createElement('p', { style: styles.error }, t('staleSelection').replace('{n}', String(staleCount)))
+                  : null,
+                filtered.length === 0
+                  ? React.createElement('p', { style: styles.hint }, t('noFilteredModels'))
+                  : React.createElement(VirtualModelList, {
+                    groups,
+                    collapsedGroups,
+                    setCollapsedGroups,
+                    selectedSet,
+                    value,
+                    toggleModel,
+                    busy,
+                    t,
+                  }),
               ),
-            selectedCount === 0
-              ? React.createElement('p', { style: styles.error }, t('modelNone'))
-              : null,
-            React.createElement('div', { style: styles.actions },
-              React.createElement('button', {
-                style: { ...styles.button, ...styles.buttonPrimary, ...(busy !== null ? styles.buttonDisabled : {}) },
-                disabled: busy !== null,
-                onClick: save,
-              }, t('save')),
+              React.createElement('aside', { className: 'dsh-ap-model-selection', style: styles.modelSelectionPanel, 'aria-label': t('selectionSummary') },
+                React.createElement('div', { style: styles.panelHead },
+                  React.createElement('h3', { style: styles.panelTitle }, t('selectionSummary')),
+                  React.createElement('span', { style: styles.cardMeta }, value.mode === 'all' ? t('catalogBadge') : t('customMode')),
+                ),
+                React.createElement('p', { style: styles.modelSelectionCount }, `${selectedCount}/${available.length}`),
+                value.mode === 'all'
+                  ? React.createElement('p', { style: styles.cardMeta }, t('allModeHint'))
+                  : React.createElement(React.Fragment, null,
+                    selectedModels.length === 0
+                      ? React.createElement('p', { style: styles.hint }, t('noSelection'))
+                      : React.createElement('div', { style: styles.modelSelectionList },
+                        selectedModels.slice(0, 8).map(model => React.createElement('span', { key: model.id, style: styles.modelSelectionItem, title: model.id }, model.name)),
+                        selectedModels.length > 8 ? React.createElement('span', { style: styles.cardMeta }, `+${selectedModels.length - 8}`) : null,
+                      ),
+                  ),
+                value.mode === 'custom' && selectedCount === 0
+                  ? React.createElement('p', { style: styles.error }, t('modelNone'))
+                  : null,
+                React.createElement('div', { style: styles.actions },
+                  React.createElement('button', {
+                    type: 'button',
+                    style: { ...styles.button, ...(value.mode !== 'custom' || selectedCount === 0 ? styles.buttonDisabled : styles.buttonPrimary) },
+                    disabled: busy !== null || value.mode !== 'custom' || selectedCount === 0,
+                    onClick: () => setCustom(value.ids.filter(id => available.some(model => model.id === id))),
+                  }, t('keepSelected')),
+                  React.createElement('button', {
+                    type: 'button',
+                    style: styles.button,
+                    disabled: busy !== null || value.mode !== 'custom',
+                    onClick: () => setCustom([]),
+                  }, t('clearSelection')),
+                  React.createElement('button', {
+                    type: 'button',
+                    style: { ...styles.button, ...styles.buttonPrimary, ...(busy !== null ? styles.buttonDisabled : {}) },
+                    disabled: busy !== null || (value.mode === 'custom' && value.ids.length === 0),
+                    onClick: save,
+                  }, t('save')),
+                ),
+              ),
             ),
           ),
       );
@@ -1653,13 +1781,19 @@ window.__ModuleLoader__.load({
         button:has(.dsh-ap-nav-mark) > svg { display: none; }
         .dsh-ap-overview-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .dsh-ap-overview-columns { grid-template-columns: minmax(0, 1.4fr) minmax(240px, .8fr); }
+        .dsh-ap-model-workspace { grid-template-columns: 190px minmax(0, 1fr) 220px; }
         @media (max-width: 980px) {
           .dsh-ap-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .dsh-ap-overview-columns { grid-template-columns: 1fr; }
+          .dsh-ap-model-workspace { grid-template-columns: 180px minmax(0, 1fr); }
+          .dsh-ap-model-selection { grid-column: 1 / -1; position: static; }
         }
         @media (max-width: 640px) {
           .dsh-ap-provider-tabs { grid-template-columns: 1fr; }
           .dsh-ap-overview-grid { grid-template-columns: 1fr; }
+          .dsh-ap-model-workspace { grid-template-columns: 1fr; }
+          .dsh-ap-model-filter { position: static; }
+          .dsh-ap-model-selection { grid-column: auto; }
         }
       `;
       document.head.appendChild(style);
