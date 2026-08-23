@@ -188,7 +188,7 @@ window.__ModuleLoader__.load({
       selectionSummary: '当前选择',
       noSelection: '尚未选择模型',
       keepSelected: '仅保留已选',
-      modelListHint: '点击分组标题展开或折叠；大目录按分组浏览。',
+      modelListHint: '按提供商分组；超过 2 个模型的分组默认折叠。',
       selectionCount: '已选 {selected} / {total}',
       filteredCount: '当前结果 {n} 个',
       selectAllFiltered: '全选当前结果',
@@ -390,7 +390,7 @@ window.__ModuleLoader__.load({
       selectionSummary: 'Current selection',
       noSelection: 'No models selected',
       keepSelected: 'Keep selected only',
-      modelListHint: 'Click a group header to expand or collapse it; large catalogs stay grouped.',
+      modelListHint: 'Grouped by provider; groups with more than 2 models start collapsed.',
       selectionCount: '{selected} / {total} selected',
       filteredCount: '{n} results',
       selectAllFiltered: 'Select filtered',
@@ -476,7 +476,7 @@ window.__ModuleLoader__.load({
     }
 
     const styles = {
-      wrap: { width: '100%', maxWidth: 'none', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' },
+      wrap: { width: '100%', maxWidth: 'none', minWidth: 0, minHeight: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' },
       header: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
       providerContext: { display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) minmax(0, 1.6fr)', gap: 12, alignItems: 'center', border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-3)', borderRadius: 8, padding: '9px 12px' },
       providerContextLabel: { color: 'var(--dsw-alias-label-tertiary)', fontSize: 11, margin: 0 },
@@ -940,20 +940,67 @@ window.__ModuleLoader__.load({
     });
     const MODEL_TAG_ORDER = ['vision', 'audio', 'video', 'reasoning', 'coding', 'free', 'latest', 'preview', 'fast', 'instruct', 'alias'];
 
+    const MODEL_GROUP_LABELS = Object.freeze({
+      ai21: 'AI21',
+      'aion-labs': 'AionLabs',
+      amazon: 'Amazon',
+      anthropic: 'Anthropic',
+      'arcee-ai': 'Arcee AI',
+      auto: '自动路由',
+      cohere: 'Cohere',
+      deepseek: 'DeepSeek',
+      google: 'Google',
+      glm: 'GLM',
+      grok: 'Grok',
+      hy3: 'Hy3',
+      kimi: 'Kimi',
+      llama: 'Llama',
+      minimax: 'MiniMax',
+      mistral: 'Mistral AI',
+      mimo: 'MiMo',
+      openai: 'OpenAI',
+      qwen: 'Qwen',
+    });
+    const MODEL_FAMILY_GROUPS = Object.freeze([
+      ['deepseek', /(?:^|[-_\s])deepseek(?:[-_.\s]|$)/],
+      ['glm', /(?:^|[-_\s])glm(?:[-_.\s]|$)/],
+      ['grok', /(?:^|[-_\s])grok(?:[-_.\s]|$)/],
+      ['hy3', /(?:^|[-_\s])hy3(?:[-_.\s]|$)/],
+      ['kimi', /(?:^|[-_\s])kimi(?:[-_.\s]|$)/],
+      ['mimo', /(?:^|[-_\s])mimo(?:[-_.\s]|$)/],
+      ['minimax', /(?:^|[-_\s])minimax(?:[-_.\s]|$)/],
+      ['qwen', /(?:^|[-_\s])qwen(?:[-_.\s]|$)/],
+      ['claude', /(?:^|[-_\s])claude(?:[-_.\s]|$)/],
+      ['gemini', /(?:^|[-_\s])gemini(?:[-_.\s]|$)/],
+      ['llama', /(?:^|[-_\s])llama(?:[-_.\s]|$)/],
+      ['mistral', /(?:^|[-_\s])mistral(?:[-_.\s]|$)/],
+      ['openai', /(?:^|[-_\s])(?:gpt|openai)(?:[-_.\s]|$)/],
+    ]);
+
     function modelGroup(model) {
       if (model && typeof model.providerGroup === 'string' && model.providerGroup.length > 0) return model.providerGroup;
       const id = String((model && model.id) || 'other');
       const slash = id.indexOf('/');
-      return (slash > 0 ? id.slice(0, slash) : id).replace(/^~/, '') || 'other';
+      if (slash > 0) return id.slice(0, slash).replace(/^~/, '') || 'other';
+      const name = String((model && model.name) || '');
+      const text = `${id} ${name}`.toLowerCase();
+      const family = MODEL_FAMILY_GROUPS.find(([, pattern]) => pattern.test(text));
+      return (family ? family[0] : id).replace(/^~/, '') || 'other';
     }
 
     function modelGroupLabel(model) {
       if (model && typeof model.providerLabel === 'string' && model.providerLabel.length > 0) return model.providerLabel;
-      return modelGroup(model)
+      const group = modelGroup(model);
+      if (MODEL_GROUP_LABELS[group]) return MODEL_GROUP_LABELS[group];
+      return group
         .split(/[-_]/g)
         .filter(Boolean)
         .map(part => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ') || 'Other';
+    }
+
+    function defaultCollapsedGroups(groups) {
+      return new Set(groups.filter(group => group.models.length > 2).map(group => group.key));
     }
 
     function modelTags(model) {
@@ -1107,7 +1154,7 @@ window.__ModuleLoader__.load({
                   },
                 },
                   React.createElement('span', { style: { fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
-                    `${t('modelGroupCount').replace('{label}', group.label).replace('{n}', String(group.models.length))}${value.mode === 'custom' && selectedCount > 0 ? ` · ${t('selectedBadge')} ${selectedCount}` : ''}`),
+                    `${group.models.length > 1 ? t('modelGroupCount').replace('{label}', group.label).replace('{n}', String(group.models.length)) : group.label}${value.mode === 'custom' && selectedCount > 0 ? ` · ${t('selectedBadge')} ${selectedCount}` : ''}`),
                   React.createElement('span', { style: styles.cardMeta, 'aria-hidden': 'true' }, collapsed ? '▶' : '▼'),
                 ),
                 value.mode === 'custom'
@@ -1246,17 +1293,14 @@ window.__ModuleLoader__.load({
       };
       React.useEffect(() => {
         resetFilters();
-        setCollapsedGroups(data && data.id === 'openrouter' ? new Set(groups.map(group => group.key)) : new Set());
+        setCollapsedGroups(defaultCollapsedGroups(groups));
       }, [available.length, data && data.id]);
       React.useEffect(() => {
-        const hasFilter = query.trim() || providerFilter !== 'all' || tagFilter !== 'all';
-        if (hasFilter) {
+        if (query.trim()) {
           setCollapsedGroups(new Set());
           return;
         }
-        setCollapsedGroups(data && data.id === 'openrouter'
-          ? new Set(groups.map(group => group.key))
-          : new Set());
+        setCollapsedGroups(defaultCollapsedGroups(groups));
       }, [data && data.id, groups, providerFilter, query, tagFilter]);
       return React.createElement('section', { style: styles.modelCatalog, 'aria-labelledby': 'dsh-model-catalog-title' },
         React.createElement('div', { style: styles.modelCatalogHead },
@@ -1911,7 +1955,7 @@ window.__ModuleLoader__.load({
 
       const keys = Array.isArray(data && data.keys) ? data.keys : [];
 
-      return React.createElement('div', { style: styles.wrap },
+      return React.createElement('div', { className: 'dsh-ap-root', style: styles.wrap },
         React.createElement('div', { style: styles.header },
           React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
           React.createElement('div', { style: { color: 'var(--dsw-alias-state-business-primary)' } },
@@ -2105,16 +2149,23 @@ window.__ModuleLoader__.load({
         .dsh-ap-switch-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .dsh-ap-overview-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .dsh-ap-overview-columns { grid-template-columns: minmax(0, 1.4fr) minmax(240px, .8fr); }
-        .dsh-ap-model-workspace { grid-template-columns: 190px minmax(0, 1fr) 220px; }
+        .dsh-ap-model-workspace { grid-template-columns: 1fr; }
         .dsh-ap-key-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .VOzbGW_panel:has(.dsh-ap-root), [role="dialog"]:has(.dsh-ap-root) {
+          height: min(860px, calc(100vh - 48px));
+          max-height: calc(100vh - 48px);
+        }
+        .VOzbGW_panel:has(.dsh-ap-root) .VOzbGW_options, [role="dialog"]:has(.dsh-ap-root) .VOzbGW_options {
+          min-height: 0;
+        }
+        .dsh-ap-root { box-sizing: border-box; min-height: 100%; }
         @media (max-width: 980px) {
           .dsh-ap-provider-context { grid-template-columns: 1fr; }
           .dsh-ap-provider-context-meta { justify-content: flex-start; }
           .dsh-ap-switch-layout { grid-template-columns: 1fr; }
           .dsh-ap-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
           .dsh-ap-overview-columns { grid-template-columns: 1fr; }
-          .dsh-ap-model-workspace { grid-template-columns: 180px minmax(0, 1fr); }
-          .dsh-ap-model-selection { grid-column: 1 / -1; position: static; }
+          .dsh-ap-model-workspace { grid-template-columns: 1fr; }
           .dsh-ap-key-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 640px) {
@@ -2124,7 +2175,6 @@ window.__ModuleLoader__.load({
           .dsh-ap-overview-grid { grid-template-columns: 1fr; }
           .dsh-ap-model-workspace { grid-template-columns: 1fr; }
           .dsh-ap-model-filter { position: static; }
-          .dsh-ap-model-selection { grid-column: auto; }
           .dsh-ap-key-grid { grid-template-columns: 1fr; }
         }
       `;

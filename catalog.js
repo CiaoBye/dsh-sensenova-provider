@@ -63,12 +63,41 @@ const MODEL_GROUP_LABELS = Object.freeze({
   'bytedance-seed': 'ByteDance Seed',
   'x-ai': 'xAI',
   'z-ai': 'Z.AI',
+  claude: 'Claude',
+  gemini: 'Gemini',
+  glm: 'GLM',
+  grok: 'Grok',
+  hy3: 'Hy3',
+  kimi: 'Kimi',
+  llama: 'Llama',
+  mistral: 'Mistral AI',
+  mimo: 'MiMo',
+  openai: 'OpenAI',
 })
 
-function modelGroupOf(id) {
+const MODEL_FAMILY_GROUPS = Object.freeze([
+  ['deepseek', /(?:^|[-_\s])deepseek(?:[-_.\s]|$)/],
+  ['glm', /(?:^|[-_\s])glm(?:[-_.\s]|$)/],
+  ['grok', /(?:^|[-_\s])grok(?:[-_.\s]|$)/],
+  ['hy3', /(?:^|[-_\s])hy3(?:[-_.\s]|$)/],
+  ['kimi', /(?:^|[-_\s])kimi(?:[-_.\s]|$)/],
+  ['mimo', /(?:^|[-_\s])mimo(?:[-_.\s]|$)/],
+  ['minimax', /(?:^|[-_\s])minimax(?:[-_.\s]|$)/],
+  ['qwen', /(?:^|[-_\s])qwen(?:[-_.\s]|$)/],
+  ['claude', /(?:^|[-_\s])claude(?:[-_.\s]|$)/],
+  ['gemini', /(?:^|[-_\s])gemini(?:[-_.\s]|$)/],
+  ['llama', /(?:^|[-_\s])llama(?:[-_.\s]|$)/],
+  ['mistral', /(?:^|[-_\s])mistral(?:[-_.\s]|$)/],
+  ['openai', /(?:^|[-_\s])(?:gpt|openai)(?:[-_.\s]|$)/],
+])
+
+function modelGroupOf(id, name = '') {
   const value = stringValue(id, 'other')
   const slash = value.indexOf('/')
-  const group = slash > 0 ? value.slice(0, slash) : value
+  if (slash > 0) return value.slice(0, slash).replace(/^~/, '') || 'other'
+  const text = `${value} ${stringValue(name)}`.toLowerCase()
+  const family = MODEL_FAMILY_GROUPS.find(([, pattern]) => pattern.test(text))
+  const group = family ? family[0] : value
   return group.replace(/^~/, '') || 'other'
 }
 
@@ -106,7 +135,7 @@ function modelTags(model) {
 export function summarizeModel(model, enabled = false) {
   const id = modelIdOf(model)
   if (!id) return null
-  const group = modelGroupOf(id)
+  const group = modelGroupOf(id, model.name)
   return {
     id,
     name: stringValue(model.name, id),

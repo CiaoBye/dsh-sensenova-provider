@@ -80,3 +80,15 @@ test('model summaries expose stable groups, capabilities, tags, and pricing for 
   assert.ok(summary.tags.includes('reasoning'))
   assert.ok(summary.tags.includes('free'))
 })
+
+test('OpenCode model families share provider groups when ids have no slash', () => {
+  const deepseekFlash = summarizeModel({ id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' })
+  const deepseekPro = summarizeModel({ id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' })
+  const glm = summarizeModel({ id: 'glm-5.2', name: 'GLM-5.2' })
+
+  assert.equal(deepseekFlash.providerGroup, 'deepseek')
+  assert.equal(deepseekFlash.providerLabel, 'DeepSeek')
+  assert.equal(deepseekPro.providerGroup, deepseekFlash.providerGroup)
+  assert.equal(glm.providerGroup, 'glm')
+  assert.equal(glm.providerLabel, 'GLM')
+})
