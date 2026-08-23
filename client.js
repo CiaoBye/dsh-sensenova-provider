@@ -969,7 +969,7 @@ window.__ModuleLoader__.load({
       ['kimi', /(?:^|[-_\s])kimi(?:[-_.\s]|$)/],
       ['mimo', /(?:^|[-_\s])mimo(?:[-_.\s]|$)/],
       ['minimax', /(?:^|[-_\s])minimax(?:[-_.\s]|$)/],
-      ['qwen', /(?:^|[-_\s])qwen(?:[-_.\s]|$)/],
+      ['qwen', /(?:^|[-_\s])qwen(?:\d|[-_.\s]|$)/],
       ['claude', /(?:^|[-_\s])claude(?:[-_.\s]|$)/],
       ['gemini', /(?:^|[-_\s])gemini(?:[-_.\s]|$)/],
       ['llama', /(?:^|[-_\s])llama(?:[-_.\s]|$)/],
