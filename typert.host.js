@@ -50,6 +50,23 @@ const keyStatusSchema = z.object({
   lastFailure: lastFailureSchema.nullable(),
 })
 
+const modelSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  enabled: z.boolean(),
+  providerGroup: z.string(),
+  providerLabel: z.string(),
+  input: z.array(z.string()),
+  reasoning: z.boolean(),
+  contextWindow: z.number().nullable(),
+  maxTokens: z.number().nullable(),
+  cost: z.object({
+    input: z.number(),
+    output: z.number(),
+  }).nullable(),
+  tags: z.array(z.string()),
+})
+
 const providerStatusSchema = z.object({
   id: z.string(),
   displayName: z.string(),
@@ -66,11 +83,8 @@ const providerStatusSchema = z.object({
   preemptAtPercent: z.number(),
   switchAfterConsecutiveFailures: z.number(),
   modelMode: z.string(),
-  availableModels: z.array(z.object({
-    id: z.string(),
-    name: z.string(),
-    enabled: z.boolean(),
-  })),
+  configuredModels: z.array(z.string()),
+  availableModels: z.array(modelSummarySchema),
   activeId: z.string().nullable(),
   lastSwitch: z.object({
     from: z.string().nullable(),

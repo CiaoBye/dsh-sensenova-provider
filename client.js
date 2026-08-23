@@ -809,7 +809,7 @@ window.__ModuleLoader__.load({
     function modelPriceLabel(model, t) {
       const input = model && model.cost && priceNumber(model.cost.input);
       const output = model && model.cost && priceNumber(model.cost.output);
-      if (input === null || output === null) return t('modelNoPrice');
+      if (input == null || output == null) return t('modelNoPrice');
       if (input === '0' && output === '0') return t('tagFree');
       return t('modelPrice').replace('{input}', `$${input}`).replace('{output}', `$${output}`);
     }
@@ -817,7 +817,7 @@ window.__ModuleLoader__.load({
     function modelPriceShort(model, t) {
       const input = model && model.cost && priceNumber(model.cost.input);
       const output = model && model.cost && priceNumber(model.cost.output);
-      if (input === null || output === null) return null;
+      if (input == null || output == null) return null;
       if (input === '0' && output === '0') return t('tagFree');
       return `$${input}/$${output}`;
     }
