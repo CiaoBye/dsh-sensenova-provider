@@ -116,6 +116,45 @@ window.__ModuleLoader__.load({
       modelUnavailable: '模型目录暂不可用，稍后刷新重试',
       catalogError: '模型目录刷新失败',
       modelEmptyHint: '自定义选择至少需要勾选一个模型',
+      modelSearch: '搜索模型名称或 ID',
+      providerFilter: '提供商',
+      allProviders: '全部提供商',
+      capabilityFilter: '能力',
+      allCapabilities: '全部能力',
+      sortBy: '排序',
+      sortName: '名称',
+      sortProvider: '提供商',
+      sortCost: '输入价格',
+      sortContext: '上下文长度',
+      selectionMode: '选择模式',
+      allMode: '跟随全部模型',
+      customMode: '自定义选择',
+      selectionCount: '已选 {selected} / {total}',
+      filteredCount: '当前结果 {n} 个',
+      selectAllFiltered: '全选当前结果',
+      clearFiltered: '取消当前结果',
+      keepFiltered: '只保留当前结果',
+      clearSelection: '清空选择',
+      expandAll: '全部展开',
+      collapseAll: '全部折叠',
+      onlyThis: '仅保留此模型',
+      noFilteredModels: '没有匹配的模型',
+      staleSelection: '另有 {n} 个已选模型已不在当前目录',
+      modelGroupCount: '{label} · {n}',
+      modelPrice: '输入 {input} / 输出 {output} 每百万 Token',
+      modelContext: '上下文 {n}',
+      modelNoPrice: '价格未知',
+      tagVision: '视觉',
+      tagAudio: '音频',
+      tagVideo: '视频',
+      tagReasoning: '推理',
+      tagCoding: '编程',
+      tagFree: '免费',
+      tagLatest: 'Latest',
+      tagPreview: '预览',
+      tagFast: '快速',
+      tagInstruct: '指令',
+      tagAlias: '别名',
     };
     const en = {
       nav: 'Multi-provider account pool',
@@ -216,6 +255,45 @@ window.__ModuleLoader__.load({
       modelUnavailable: 'Model catalog unavailable — try refreshing later',
       catalogError: 'Model catalog refresh failed',
       modelEmptyHint: 'Custom selection needs at least one model',
+      modelSearch: 'Search model name or ID',
+      providerFilter: 'Provider',
+      allProviders: 'All providers',
+      capabilityFilter: 'Capability',
+      allCapabilities: 'All capabilities',
+      sortBy: 'Sort by',
+      sortName: 'Name',
+      sortProvider: 'Provider',
+      sortCost: 'Input price',
+      sortContext: 'Context window',
+      selectionMode: 'Selection mode',
+      allMode: 'Follow all models',
+      customMode: 'Custom selection',
+      selectionCount: '{selected} / {total} selected',
+      filteredCount: '{n} results',
+      selectAllFiltered: 'Select filtered',
+      clearFiltered: 'Clear filtered',
+      keepFiltered: 'Keep filtered only',
+      clearSelection: 'Clear selection',
+      expandAll: 'Expand all',
+      collapseAll: 'Collapse all',
+      onlyThis: 'Keep only this',
+      noFilteredModels: 'No matching models',
+      staleSelection: '{n} selected model(s) are no longer in the catalog',
+      modelGroupCount: '{label} · {n}',
+      modelPrice: 'Input {input} / output {output} per million tokens',
+      modelContext: 'Context {n}',
+      modelNoPrice: 'Price unavailable',
+      tagVision: 'vision',
+      tagAudio: 'audio',
+      tagVideo: 'video',
+      tagReasoning: 'reasoning',
+      tagCoding: 'coding',
+      tagFree: 'free',
+      tagLatest: 'latest',
+      tagPreview: 'preview',
+      tagFast: 'fast',
+      tagInstruct: 'instruct',
+      tagAlias: 'alias',
     };
 
     // Client-side Remote contribution. The result codecs are pass-through
@@ -306,6 +384,21 @@ window.__ModuleLoader__.load({
       noticeOk: { color: 'var(--dsw-alias-state-business-primary)' },
       noticeErr: { color: 'var(--dsw-alias-state-error-primary)' },
       badge: { fontSize: 11, borderRadius: 999, padding: '2px 9px', border: '1px solid transparent', whiteSpace: 'nowrap' },
+      compactInput: { flex: '1 1 260px', border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', borderRadius: 6, padding: '5px 10px', minWidth: 0 },
+      compactSelect: { flex: '0 1 170px', border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', borderRadius: 6, padding: '5px 8px', minWidth: 0 },
+      modelToolbar: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
+      modelList: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 620, overflowY: 'auto', paddingRight: 4 },
+      modelGroup: { border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, overflow: 'hidden' },
+      modelGroupHead: { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, border: 0, color: 'var(--dsw-alias-label-primary)', font: 'inherit', cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-1)', padding: '8px 10px', textAlign: 'left' },
+      modelGroupBody: { display: 'flex', flexDirection: 'column', gap: 2, padding: '5px 8px 8px' },
+      modelItem: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, padding: '5px 4px', borderRadius: 6 },
+      modelItemLabel: { display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 260px', minWidth: 0, cursor: 'pointer' },
+      modelItemInfo: { display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 },
+      modelItemName: { fontWeight: 600, color: 'var(--dsw-alias-label-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      modelItemId: { opacity: 0.65, fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+      modelMeta: { display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' },
+      modelMode: { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' },
+      modelModeButton: { border: '1px solid var(--dsw-alias-border-l2)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', cursor: 'pointer', background: 'transparent', borderRadius: 6, padding: '5px 10px' },
     };
 
     const BADGE_TONE = {
@@ -634,26 +727,189 @@ window.__ModuleLoader__.load({
       );
     }
 
+    const MODEL_TAG_KEYS = Object.freeze({
+      vision: 'tagVision',
+      audio: 'tagAudio',
+      video: 'tagVideo',
+      reasoning: 'tagReasoning',
+      coding: 'tagCoding',
+      free: 'tagFree',
+      latest: 'tagLatest',
+      preview: 'tagPreview',
+      fast: 'tagFast',
+      instruct: 'tagInstruct',
+      alias: 'tagAlias',
+    });
+    const MODEL_TAG_ORDER = ['vision', 'audio', 'video', 'reasoning', 'coding', 'free', 'latest', 'preview', 'fast', 'instruct', 'alias'];
+
+    function modelGroup(model) {
+      if (model && typeof model.providerGroup === 'string' && model.providerGroup.length > 0) return model.providerGroup;
+      const id = String((model && model.id) || 'other');
+      const slash = id.indexOf('/');
+      return (slash > 0 ? id.slice(0, slash) : id).replace(/^~/, '') || 'other';
+    }
+
+    function modelGroupLabel(model) {
+      if (model && typeof model.providerLabel === 'string' && model.providerLabel.length > 0) return model.providerLabel;
+      return modelGroup(model)
+        .split(/[-_]/g)
+        .filter(Boolean)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ') || 'Other';
+    }
+
+    function modelTags(model) {
+      if (Array.isArray(model && model.tags)) return [...new Set(model.tags)];
+      const id = String((model && model.id) || '');
+      const name = String((model && model.name) || '');
+      const text = `${id} ${name}`.toLowerCase();
+      const tags = [];
+      const input = new Set(Array.isArray(model && model.input) ? model.input : []);
+      if (input.has('image')) tags.push('vision');
+      if (input.has('audio')) tags.push('audio');
+      if (input.has('video')) tags.push('video');
+      if ((model && model.reasoning) || /reasoning|thinking/.test(text)) tags.push('reasoning');
+      if (/code|coder|coding|program|dev/.test(text)) tags.push('coding');
+      if (/free/.test(text)
+          || (model && model.cost && model.cost.input === 0 && model.cost.output === 0)) tags.push('free');
+      if (/latest/.test(text)) tags.push('latest');
+      if (/preview/.test(text)) tags.push('preview');
+      if (/fast|flash/.test(text)) tags.push('fast');
+      if (/instruct/.test(text)) tags.push('instruct');
+      if (/^~|\bauto\b/.test(id)) tags.push('alias');
+      return [...new Set(tags)];
+    }
+
+    function tagLabel(tag, t) {
+      const key = MODEL_TAG_KEYS[tag];
+      return key ? t(key) : tag;
+    }
+
+    function compactNumber(value) {
+      if (!Number.isFinite(value)) return '';
+      if (value >= 1000000) return `${(value / 1000000).toFixed(value % 1000000 === 0 ? 0 : 1)}M`;
+      if (value >= 1000) return `${Math.round(value / 1000)}K`;
+      return String(value);
+    }
+
+    function modelContextLabel(model, t) {
+      return Number.isFinite(model && model.contextWindow)
+        ? t('modelContext').replace('{n}', compactNumber(model.contextWindow))
+        : null;
+    }
+
+    function priceNumber(value) {
+      if (!Number.isFinite(value)) return null;
+      if (value === 0) return '0';
+      if (value < 0.01) return value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+      if (value < 1) return value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+      return value.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+    }
+
+    function modelPriceLabel(model, t) {
+      const input = model && model.cost && priceNumber(model.cost.input);
+      const output = model && model.cost && priceNumber(model.cost.output);
+      if (input === null || output === null) return t('modelNoPrice');
+      if (input === '0' && output === '0') return t('tagFree');
+      return t('modelPrice').replace('{input}', `$${input}`).replace('{output}', `$${output}`);
+    }
+
+    function modelPriceShort(model, t) {
+      const input = model && model.cost && priceNumber(model.cost.input);
+      const output = model && model.cost && priceNumber(model.cost.output);
+      if (input === null || output === null) return null;
+      if (input === '0' && output === '0') return t('tagFree');
+      return `$${input}/$${output}`;
+    }
+
+    function modelSortCost(model) {
+      return Number.isFinite(model && model.cost && model.cost.input) ? model.cost.input : Number.POSITIVE_INFINITY;
+    }
+
     /**
-     * Model selection: which catalog models the pool route exposes. A master
-     * "all models" switch plus per-model checkboxes; saving writes through
-     * putConfig({ modelMode, models }).
+     * Model selection UI. The persisted contract remains modelMode/models, but
+     * the UI keeps selection and discovery separate: custom mode supports
+     * individual checkboxes, filtered batch operations, and one-click-only
+     * selection; catalog metadata drives provider groups and capability tags.
      */
     function ModelCard(props) {
       const { t, data, sel, setSel, busy, onSave } = props;
       const available = Array.isArray(data && data.availableModels) ? data.availableModels : [];
+      const [query, setQuery] = React.useState('');
+      const [providerFilter, setProviderFilter] = React.useState('all');
+      const [tagFilter, setTagFilter] = React.useState('all');
+      const [sortBy, setSortBy] = React.useState('provider');
+      const [collapsedGroups, setCollapsedGroups] = React.useState(() => new Set());
       const value = sel !== null
         ? sel
         : {
           mode: (data && data.modelMode) || 'all',
-          ids: available.filter(m => m.enabled).map(m => m.id),
+          ids: Array.isArray(data && data.configuredModels)
+            ? [...data.configuredModels]
+            : available.filter(m => m.enabled).map(m => m.id),
         };
-      const enabledCount = available.filter(m => value.mode === 'all' || value.ids.includes(m.id)).length;
+      const normalized = React.useMemo(() => available.map(model => ({
+        ...model,
+        providerGroup: modelGroup(model),
+        providerLabel: modelGroupLabel(model),
+        tags: modelTags(model),
+      })), [available]);
+      const providerOptions = React.useMemo(() => {
+        const byGroup = new Map();
+        for (const model of normalized) {
+          if (!byGroup.has(model.providerGroup)) byGroup.set(model.providerGroup, model.providerLabel);
+        }
+        return [...byGroup.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+      }, [normalized]);
+      const availableTags = React.useMemo(() => {
+        const tags = new Set(normalized.flatMap(model => model.tags));
+        return MODEL_TAG_ORDER.filter(tag => tags.has(tag));
+      }, [normalized]);
+      const filtered = React.useMemo(() => {
+        const needle = query.trim().toLowerCase();
+        const rows = normalized.filter(model => {
+          const haystack = `${model.name} ${model.id} ${model.providerLabel} ${model.tags.join(' ')}`.toLowerCase();
+          return (!needle || haystack.includes(needle))
+            && (providerFilter === 'all' || model.providerGroup === providerFilter)
+            && (tagFilter === 'all' || model.tags.includes(tagFilter));
+        });
+        return rows.sort((a, b) => {
+          if (sortBy === 'cost') return modelSortCost(a) - modelSortCost(b) || a.name.localeCompare(b.name);
+          if (sortBy === 'context') return (b.contextWindow || 0) - (a.contextWindow || 0) || a.name.localeCompare(b.name);
+          if (sortBy === 'name') return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+          return a.providerLabel.localeCompare(b.providerLabel) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+        });
+      }, [normalized, providerFilter, query, sortBy, tagFilter]);
+      const groups = React.useMemo(() => {
+        const result = [];
+        const byKey = new Map();
+        for (const model of filtered) {
+          let group = byKey.get(model.providerGroup);
+          if (!group) {
+            group = { key: model.providerGroup, label: model.providerLabel, models: [] };
+            byKey.set(model.providerGroup, group);
+            result.push(group);
+          }
+          group.models.push(model);
+        }
+        return result;
+      }, [filtered]);
+      const selectedSet = new Set(value.mode === 'all' ? available.map(model => model.id) : value.ids);
+      const selectedCount = value.mode === 'all' ? available.length : value.ids.length;
+      const staleCount = value.mode === 'custom'
+        ? value.ids.filter(id => !available.some(model => model.id === id)).length
+        : 0;
+      const filteredIds = filtered.map(model => model.id);
       const checkStyle = {
         width: 15, height: 15, margin: 0, flex: 'none', cursor: 'pointer',
         accentColor: 'var(--dsw-alias-state-business-primary)',
       };
-      const modelRow = { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--dsw-alias-label-secondary)', cursor: 'pointer' };
+      const setCustom = ids => setSel({ mode: 'custom', ids: [...new Set(ids)] });
+      const switchToCustom = () => setCustom(value.mode === 'all' ? available.map(model => model.id) : value.ids);
+      const toggleModel = id => {
+        if (value.mode !== 'custom') return;
+        setCustom(selectedSet.has(id) ? value.ids.filter(item => item !== id) : [...value.ids, id]);
+      };
       const save = () => {
         if (value.mode === 'custom' && value.ids.length === 0) {
           onSave(null, t('modelEmptyHint'));
@@ -661,6 +917,13 @@ window.__ModuleLoader__.load({
         }
         onSave({ modelMode: value.mode, models: value.mode === 'all' ? [] : value.ids });
       };
+      React.useEffect(() => {
+        setQuery('');
+        setProviderFilter('all');
+        setTagFilter('all');
+        setSortBy('provider');
+        setCollapsedGroups(new Set());
+      }, [data && data.id]);
       return React.createElement('div', { style: styles.card },
         React.createElement('div', { style: styles.cardHead },
           React.createElement('div', null,
@@ -668,7 +931,7 @@ window.__ModuleLoader__.load({
             React.createElement('p', { style: styles.cardMeta }, t('modelHint')),
           ),
           React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-secondary)', borderColor: 'var(--dsw-alias-border-l2)' } },
-            t('modelCount').replace('{n}', String(enabledCount))),
+            t('selectionCount').replace('{selected}', String(selectedCount)).replace('{total}', String(available.length))),
         ),
         data && data.catalogError
           ? React.createElement('p', { style: styles.error }, `${t('catalogError')}: ${data.catalogError}`)
@@ -676,43 +939,173 @@ window.__ModuleLoader__.load({
         available.length === 0
           ? React.createElement('p', { style: styles.hint }, t('modelUnavailable'))
           : React.createElement(React.Fragment, null,
-            React.createElement('label', { style: modelRow },
-              React.createElement('input', {
-                type: 'checkbox',
-                style: checkStyle,
-                checked: value.mode === 'all',
-                disabled: busy !== null,
-                onChange: event => setSel({
-                  mode: event.target.checked ? 'all' : 'custom',
-                  ids: available.map(m => m.id),
+            React.createElement('div', { style: styles.modelMode },
+              React.createElement('span', { style: styles.cardMeta }, t('selectionMode')),
+              React.createElement('label', { style: { ...styles.modelItemLabel, flex: '0 1 auto' } },
+                React.createElement('input', {
+                  type: 'checkbox',
+                  style: checkStyle,
+                  checked: value.mode === 'all',
+                  disabled: busy !== null,
+                  onChange: event => event.target.checked
+                    ? setSel({ mode: 'all', ids: [] })
+                    : setCustom(value.mode === 'all' ? available.map(model => model.id) : value.ids),
                 }),
-              }),
-              React.createElement('span', null, t('allModels')),
+                React.createElement('span', null, t('allModels')),
+              ),
+              React.createElement('button', {
+                type: 'button',
+                style: { ...styles.modelModeButton, ...(value.mode === 'all' ? styles.buttonPrimary : {}) },
+                'aria-pressed': value.mode === 'all',
+                disabled: busy !== null,
+                onClick: () => setSel({ mode: 'all', ids: [] }),
+              }, t('allMode')),
+              React.createElement('button', {
+                type: 'button',
+                style: { ...styles.modelModeButton, ...(value.mode === 'custom' ? styles.buttonPrimary : {}) },
+                'aria-pressed': value.mode === 'custom',
+                disabled: busy !== null,
+                onClick: switchToCustom,
+              }, t('customMode')),
             ),
-            available.map(m => React.createElement('label', {
-              key: m.id,
-              style: {
-                ...modelRow,
-                paddingLeft: 24,
-                color: value.mode === 'all' ? 'var(--dsw-alias-label-tertiary)' : 'var(--dsw-alias-label-secondary)',
-              },
-            },
+            React.createElement('div', { style: styles.modelToolbar },
               React.createElement('input', {
-                type: 'checkbox',
-                style: checkStyle,
-                checked: value.mode === 'all' || value.ids.includes(m.id),
-                disabled: busy !== null || value.mode === 'all',
-                onChange: () => {
-                  const ids = value.ids.includes(m.id)
-                    ? value.ids.filter(id => id !== m.id)
-                    : [...value.ids, m.id];
-                  setSel({ mode: 'custom', ids });
-                },
+                type: 'search',
+                style: styles.compactInput,
+                placeholder: t('modelSearch'),
+                'aria-label': t('modelSearch'),
+                value: query,
+                onChange: event => setQuery(event.target.value),
               }),
-              React.createElement('span', { style: { fontWeight: 600, color: 'var(--dsw-alias-label-primary)' } }, m.name),
-              React.createElement('span', { style: { opacity: 0.65, fontSize: 12 } }, m.id),
-            )),
-            enabledCount === 0
+              React.createElement('select', {
+                style: styles.compactSelect,
+                'aria-label': t('providerFilter'),
+                value: providerFilter,
+                onChange: event => setProviderFilter(event.target.value),
+              },
+                React.createElement('option', { value: 'all' }, t('allProviders')),
+                providerOptions.map(([key, label]) => React.createElement('option', { key, value: key }, label)),
+              ),
+              React.createElement('select', {
+                style: styles.compactSelect,
+                'aria-label': t('capabilityFilter'),
+                value: tagFilter,
+                onChange: event => setTagFilter(event.target.value),
+              },
+                React.createElement('option', { value: 'all' }, t('allCapabilities')),
+                availableTags.map(tag => React.createElement('option', { key: tag, value: tag }, tagLabel(tag, t))),
+              ),
+              React.createElement('select', {
+                style: styles.compactSelect,
+                'aria-label': t('sortBy'),
+                value: sortBy,
+                onChange: event => setSortBy(event.target.value),
+              },
+                React.createElement('option', { value: 'provider' }, `${t('sortBy')}: ${t('sortProvider')}`),
+                React.createElement('option', { value: 'name' }, `${t('sortBy')}: ${t('sortName')}`),
+                React.createElement('option', { value: 'cost' }, `${t('sortBy')}: ${t('sortCost')}`),
+                React.createElement('option', { value: 'context' }, `${t('sortBy')}: ${t('sortContext')}`),
+              ),
+            ),
+            React.createElement('div', { style: styles.modelToolbar },
+              React.createElement('span', { style: styles.cardMeta }, t('filteredCount').replace('{n}', String(filtered.length))),
+              React.createElement('button', {
+                type: 'button',
+                style: { ...styles.button, ...(value.mode === 'custom' ? {} : styles.buttonDisabled) },
+                disabled: busy !== null || value.mode !== 'custom',
+                onClick: () => setCustom([...value.ids, ...filteredIds]),
+              }, t('selectAllFiltered')),
+              React.createElement('button', {
+                type: 'button',
+                style: { ...styles.button, ...(value.mode === 'custom' ? {} : styles.buttonDisabled) },
+                disabled: busy !== null || value.mode !== 'custom',
+                onClick: () => setCustom(value.ids.filter(id => !filteredIds.includes(id))),
+              }, t('clearFiltered')),
+              React.createElement('button', {
+                type: 'button',
+                style: styles.button,
+                disabled: busy !== null || filteredIds.length === 0,
+                onClick: () => setCustom(filteredIds),
+              }, t('keepFiltered')),
+              React.createElement('button', {
+                type: 'button',
+                style: styles.button,
+                disabled: busy !== null || value.mode !== 'custom',
+                onClick: () => setCustom([]),
+              }, t('clearSelection')),
+              React.createElement('button', {
+                type: 'button',
+                style: styles.button,
+                disabled: busy !== null || groups.length === 0,
+                onClick: () => setCollapsedGroups(new Set()),
+              }, t('expandAll')),
+              React.createElement('button', {
+                type: 'button',
+                style: styles.button,
+                disabled: busy !== null || groups.length === 0,
+                onClick: () => setCollapsedGroups(new Set(groups.map(group => group.key))),
+              }, t('collapseAll')),
+            ),
+            staleCount > 0
+              ? React.createElement('p', { style: styles.error }, t('staleSelection').replace('{n}', String(staleCount)))
+              : null,
+            filtered.length === 0
+              ? React.createElement('p', { style: styles.hint }, t('noFilteredModels'))
+              : React.createElement('div', { style: styles.modelList },
+                groups.map(group => React.createElement('section', { key: group.key, style: styles.modelGroup },
+                  React.createElement('button', {
+                    type: 'button',
+                    style: styles.modelGroupHead,
+                    'aria-expanded': !collapsedGroups.has(group.key),
+                    onClick: () => {
+                      const next = new Set(collapsedGroups);
+                      if (next.has(group.key)) next.delete(group.key);
+                      else next.add(group.key);
+                      setCollapsedGroups(next);
+                    },
+                  },
+                    React.createElement('span', { style: { fontWeight: 600 } }, t('modelGroupCount').replace('{label}', group.label).replace('{n}', String(group.models.length))),
+                    React.createElement('span', { style: styles.cardMeta }, collapsedGroups.has(group.key) ? '▶' : '▼'),
+                  ),
+                  collapsedGroups.has(group.key)
+                    ? null
+                    : React.createElement('div', { style: styles.modelGroupBody }, group.models.map(model => {
+                      const selected = value.mode === 'all' || selectedSet.has(model.id);
+                      const tags = model.tags.slice(0, 4);
+                      const price = modelPriceLabel(model, t);
+                      const priceShort = modelPriceShort(model, t);
+                      const context = modelContextLabel(model, t);
+                      return React.createElement('div', { key: model.id, style: styles.modelItem },
+                        React.createElement('label', { style: styles.modelItemLabel, title: model.id },
+                          React.createElement('input', {
+                            type: 'checkbox',
+                            style: checkStyle,
+                            checked: selected,
+                            disabled: busy !== null || value.mode === 'all',
+                            onChange: () => toggleModel(model.id),
+                          }),
+                          React.createElement('span', { style: styles.modelItemInfo },
+                            React.createElement('span', { style: styles.modelItemName }, model.name),
+                            React.createElement('span', { style: styles.modelItemId }, model.id),
+                          ),
+                        ),
+                        React.createElement('div', { style: styles.modelMeta },
+                          tags.map(tag => React.createElement('span', { key: tag, style: styles.badge }, tagLabel(tag, t))),
+                          priceShort ? React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-tertiary)' }, title: price }, priceShort) : null,
+                          context ? React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-tertiary)' } }, context) : null,
+                        ),
+                        React.createElement('button', {
+                          type: 'button',
+                          style: { ...styles.button, padding: '3px 8px', ...(busy !== null ? styles.buttonDisabled : {}) },
+                          disabled: busy !== null,
+                          'aria-label': `${t('onlyThis')}: ${model.name}`,
+                          onClick: () => setCustom([model.id]),
+                        }, t('onlyThis')),
+                      );
+                    })),
+                )),
+              ),
+            selectedCount === 0
               ? React.createElement('p', { style: styles.error }, t('modelNone'))
               : null,
             React.createElement('div', { style: styles.actions },

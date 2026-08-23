@@ -21,7 +21,7 @@ import {
 } from '@deepseek-ai/dsh-llm'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import { PROVIDER_DRIVERS, PROVIDER_IDS, getProviderDriver } from './drivers.js'
-import { mergeLiveModels } from './catalog.js'
+import { mergeLiveModels, summarizeModel } from './catalog.js'
 import { KeyPool, assertKeyList, QUOTA_CODE } from './pool.js'
 import { fetchOpenRouterUsage, fetchUsage, UsageCache } from './usage.js'
 
@@ -507,11 +507,7 @@ export class DshAccountPool extends TypertRemoteService {
       : this.catalogs.get(provider)
     const list = catalog ? catalog.models : []
     const selection = this.modelSelection(provider)
-    return list.map(entry => ({
-      id: entry.id,
-      name: entry.name ?? entry.id,
-      enabled: selection === null || selection.has(entry.id),
-    }))
+    return list.map(entry => summarizeModel(entry, selection === null || selection.has(entry.id))).filter(Boolean)
   }
 
   async providerStatus(provider) {
@@ -593,6 +589,7 @@ export class DshAccountPool extends TypertRemoteService {
       preemptAtPercent: cfg.preemptAtPercent,
       switchAfterConsecutiveFailures: cfg.switchAfterConsecutiveFailures,
       modelMode: cfg.modelMode,
+      configuredModels: [...cfg.models],
       availableModels,
       activeId: pool.activeId,
       lastSwitch: pool.lastSwitch,

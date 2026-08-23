@@ -281,6 +281,7 @@ test('model selection filters the catalog and gates disabled models through the 
   // Default: 'all' mode exposes the whole catalog to the picker and status.
   let status = (await plugin.status()).providers.find(item => item.id === 'opencode-go')
   assert.equal(status.modelMode, 'all')
+  assert.deepEqual(status.configuredModels, [], 'status exposes configured ids without changing all-mode semantics')
   assert.ok(status.availableModels.length >= 2, 'catalog present in the card data')
   assert.ok(status.availableModels.every(m => m.enabled), 'all models enabled by default')
 
@@ -288,6 +289,7 @@ test('model selection filters the catalog and gates disabled models through the 
   await plugin.putConfig('opencode-go', { modelMode: 'custom', models: ['deepseek-v4-pro', 'deepseek-v4-pro'] })
   status = (await plugin.status()).providers.find(item => item.id === 'opencode-go')
   assert.equal(status.modelMode, 'custom')
+  assert.deepEqual(status.configuredModels, ['deepseek-v4-pro'], 'status preserves deduplicated configured ids')
   assert.deepEqual(
     status.availableModels.filter(m => m.enabled).map(m => m.id),
     ['deepseek-v4-pro'],

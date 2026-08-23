@@ -213,7 +213,11 @@ test('ModelCard renders the master switch, per-model checkboxes, and the enabled
   assert.ok(html.includes('modelTitle'), 'renders the card title')
   assert.ok(html.includes('allModels'), 'renders the master all-models switch')
   assert.ok(html.includes('DeepSeek V4 Pro') && html.includes('glm-5.2'), 'lists the catalog models')
-  assert.ok(html.includes('modelCount'), 'renders the enabled-count badge')
+  assert.ok(html.includes('selectionCount'), 'renders the selection-count badge')
+  assert.ok(html.includes('selectionMode'), 'renders explicit all/custom selection modes')
+  assert.ok(html.includes('modelSearch'), 'renders model search')
+  assert.ok(html.includes('onlyThis'), 'renders one-click single-model selection')
+  assert.ok(html.includes('selectAllFiltered') && html.includes('keepFiltered'), 'renders filtered batch actions')
   assert.equal((html.match(/checked/g) || []).length, 1, 'only the enabled model is checked')
 
   // All-mode: master and every per-model checkbox render checked + locked.

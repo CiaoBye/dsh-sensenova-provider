@@ -10,7 +10,7 @@ DeepSeek Harness（DSH）插件：为 OpenCode Go、OpenCode Zen 和 OpenRouter 
 - OpenRouter 按账户额度和剩余额度进行预切换；普通上游 429 不会误判为账号耗尽。
 - OpenCode Zen 当前没有公开用量接口，卡片展示“用量不可用”，仍支持请求失败切换。
 - 模型目录以本地 pi-ai catalog 为安全基线，并按 Provider 刷新官方/公开的 `/models` 响应。
-- 设置页用三个 Provider 选项卡管理 Key、模型选择、切换策略和模型目录刷新。
+- 设置页用三个 Provider 选项卡管理 Key、模型选择、切换策略和模型目录刷新；自定义模型支持搜索、提供商/能力筛选、分组折叠、批量选择和“仅保留此模型”。
 
 ## Provider 路由
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-account-pool",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "DeepSeek Harness plugin: provider-aware account pools for OpenCode Go, OpenCode Zen, and OpenRouter",
   "license": "MIT",
   "keywords": [

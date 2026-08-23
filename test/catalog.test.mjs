@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { mergeLiveModels, parseModelList } from '../catalog.js'
+import { mergeLiveModels, parseModelList, summarizeModel } from '../catalog.js'
 
 const STATIC = [
   {
@@ -53,4 +53,30 @@ test('OpenRouter live models are converted to pi-ai model metadata', () => {
     maxTokens: 64000,
     compat: { supportsDeveloperRole: false, thinkingFormat: 'openrouter' },
   })
+})
+
+test('model summaries expose stable groups, capabilities, tags, and pricing for the UI', () => {
+  const models = mergeLiveModels('openrouter', [], {
+    data: [{
+      id: 'qwen/qwen3-coder:free',
+      name: 'Qwen: Qwen3 Coder (free)',
+      architecture: { input_modalities: ['text', 'image'] },
+      context_length: 262144,
+      supported_parameters: ['reasoning'],
+      pricing: { prompt: '0', completion: '0' },
+      top_provider: { max_completion_tokens: 65536 },
+    }],
+  })
+  const summary = summarizeModel(models[0], true)
+  assert.equal(summary.providerGroup, 'qwen')
+  assert.equal(summary.providerLabel, 'Qwen')
+  assert.equal(summary.enabled, true)
+  assert.deepEqual(summary.input, ['text', 'image'])
+  assert.equal(summary.contextWindow, 262144)
+  assert.equal(summary.maxTokens, 65536)
+  assert.deepEqual(summary.cost, { input: 0, output: 0 })
+  assert.ok(summary.tags.includes('vision'))
+  assert.ok(summary.tags.includes('coding'))
+  assert.ok(summary.tags.includes('reasoning'))
+  assert.ok(summary.tags.includes('free'))
 })
