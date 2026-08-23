@@ -1091,7 +1091,7 @@ window.__ModuleLoader__.load({
                         ),
                         React.createElement('div', { style: styles.modelMeta },
                           tags.map(tag => React.createElement('span', { key: tag, style: styles.badge }, tagLabel(tag, t))),
-                          priceShort ? React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-tertiary)' }, title: price }, priceShort) : null,
+                          priceShort && !tags.includes('free') ? React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-tertiary)' }, title: price }, priceShort) : null,
                           context ? React.createElement('span', { style: { ...styles.badge, color: 'var(--dsw-alias-label-tertiary)' } }, context) : null,
                         ),
                         React.createElement('button', {
