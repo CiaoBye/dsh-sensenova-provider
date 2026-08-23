@@ -1325,18 +1325,22 @@ window.__ModuleLoader__.load({
                   ? React.createElement('p', { style: styles.error }, t('modelNone'))
                   : null,
                 React.createElement('div', { style: styles.actions },
-                  React.createElement('button', {
-                    type: 'button',
-                    style: { ...styles.button, ...(value.mode !== 'custom' || selectedCount === 0 ? styles.buttonDisabled : styles.buttonPrimary) },
-                    disabled: busy !== null || value.mode !== 'custom' || selectedCount === 0,
-                    onClick: () => setCustom(value.ids.filter(id => available.some(model => model.id === id))),
-                  }, t('keepSelected')),
-                  React.createElement('button', {
-                    type: 'button',
-                    style: styles.button,
-                    disabled: busy !== null || value.mode !== 'custom',
-                    onClick: () => setCustom([]),
-                  }, t('clearSelection')),
+                  value.mode === 'custom'
+                    ? React.createElement(React.Fragment, null,
+                      React.createElement('button', {
+                        type: 'button',
+                        style: { ...styles.button, ...(selectedCount === 0 ? styles.buttonDisabled : styles.buttonPrimary) },
+                        disabled: busy !== null || selectedCount === 0,
+                        onClick: () => setCustom(value.ids.filter(id => available.some(model => model.id === id))),
+                      }, t('keepSelected')),
+                      React.createElement('button', {
+                        type: 'button',
+                        style: styles.button,
+                        disabled: busy !== null,
+                        onClick: () => setCustom([]),
+                      }, t('clearSelection')),
+                    )
+                    : null,
                   React.createElement('button', {
                     type: 'button',
                     style: { ...styles.button, ...styles.buttonPrimary, ...(busy !== null ? styles.buttonDisabled : {}) },
