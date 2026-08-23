@@ -388,7 +388,10 @@ window.__ModuleLoader__.load({
       compactSelect: { flex: '0 1 170px', border: '1px solid var(--dsw-alias-border-l2)', background: 'var(--dsw-alias-bg-layer-1)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', borderRadius: 6, padding: '5px 8px', minWidth: 0 },
       modelToolbar: { display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
       modelList: { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 620, overflowY: 'auto', paddingRight: 4 },
-      modelGroup: { border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, overflow: 'hidden' },
+      // Keep accordion sections at their natural height. Without this, a
+      // tall model group is flex-shrunk to the available list height when
+      // many groups are expanded, then overflow:hidden clips its rows.
+      modelGroup: { border: '1px solid var(--dsw-alias-border-l2)', borderRadius: 8, overflow: 'hidden', flex: '0 0 auto' },
       modelGroupHead: { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, border: 0, color: 'var(--dsw-alias-label-primary)', font: 'inherit', cursor: 'pointer', background: 'var(--dsw-alias-bg-layer-1)', padding: '8px 10px', textAlign: 'left' },
       modelGroupBody: { display: 'flex', flexDirection: 'column', gap: 2, padding: '5px 8px 8px' },
       modelItem: { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, padding: '5px 4px', borderRadius: 6 },

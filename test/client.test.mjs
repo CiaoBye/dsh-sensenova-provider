@@ -218,6 +218,7 @@ test('ModelCard renders the master switch, per-model checkboxes, and the enabled
   assert.ok(html.includes('modelSearch'), 'renders model search')
   assert.ok(html.includes('onlyThis'), 'renders one-click single-model selection')
   assert.ok(html.includes('selectAllFiltered') && html.includes('keepFiltered'), 'renders filtered batch actions')
+  assert.ok(html.includes('flex:0 0 auto'), 'model groups cannot shrink and clip their rows')
   assert.equal((html.match(/checked/g) || []).length, 1, 'only the enabled model is checked')
 
   // All-mode: master and every per-model checkbox render checked + locked.
