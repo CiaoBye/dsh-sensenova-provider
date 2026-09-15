@@ -29,7 +29,7 @@
   },
   "files": [
     "index.js", "client.js", "adapter.js", "catalog.js", "http.js", "pool.js", "routing.js", "runtime-remote.js",
-    "openai-history.js", "sse-state.js", "openai-sse.js", "cordis.patch.yml", "README.md", "LICENSE"
+    "openai-history.js", "sse-state.js", "openai-sse.js", "cordis.patch.yml", "README.md", "CHANGELOG.md", "LICENSE"
   ],
   "scripts": {
     "check": "node --check index.js && node --check client.js && node --check adapter.js && node --check catalog.js && node --check http.js && node --check pool.js && node --check routing.js && node --check runtime-remote.js && node --check openai-history.js && node --check sse-state.js && node --check openai-sse.js",
