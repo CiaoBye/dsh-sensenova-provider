@@ -2,87 +2,70 @@
 
 SenseNova Provider for **DeepSeek Harness (DSH)**.
 
-基于 SenseNova OpenAI-compatible API，为 DSH 提供模型接入、多 Key 轮转、限流切换，以及 Tool Call 流式兼容修复。
+为 DSH 接入 SenseNova OpenAI-compatible API，并提供多 Key 轮转、401/429 自动切换、Tool Call 流式修复，以及独立的 Web 设置页。
 
-## 核心能力
+## 功能
 
-- **SenseNova 接入**：支持 `/models` 与 `/chat/completions`
-- **多 Key 轮转**：自动选择可用 Key，请求失败后切换下一 Key
-- **401 自动禁用**：失效 Key 在当前插件生命周期内停止使用
-- **429 自动冷却**：限流 Key 暂停使用，到期后自动恢复
-- **Tool Call 修复**：避免 SenseNova 流式返回空 `id` / `function.name` 覆盖前序有效值
-- **DSH 0.1.6 兼容**：符合当前 stream / usage / finish 契约
+- SenseNova `/models` 与 `/chat/completions`
+- 多 Key 自动轮转
+- `401`：禁用当前 Key，立即切换下一 Key
+- `429`：当前 Key 进入 cooldown，立即切换下一 Key
+- 修复流式 Tool Call 后续 chunk 的空 `id` / `function.name`
+- DSH 设置侧栏独立 **SenseNova** 页面
+- API Key 通过 DSH Credentials 保存，不写入 `settings.yaml`
 
 ## 安装
 
 ```sh
-dsh plugin --profile web add "github:CiaoBye/dsh-sensenova-provider"
+dsh plugin --profile web add "github:CiaoBye/dsh-sensenova-provider#main"
 ```
 
-Provider ID：
+安装后打开：
 
 ```text
-sensenova
+设置 → SenseNova
 ```
 
-默认 API：
+可直接配置：
 
-```text
-https://token.sensenova.cn/v1
-```
+- API Endpoint
+- 多个 API Key
+- 429 默认 / 最大冷却时间
+- 连接超时
+- Stream idle timeout
+- 默认 Context Window
 
-## 配置
+保存后对下一次请求生效，无需重启 DSH。
 
-单 Key 默认读取：
+## 默认值
 
-```text
-SENSENOVA_API_KEY
-```
+| 项目 | 默认值 |
+| --- | --- |
+| Provider ID | `sensenova` |
+| API Endpoint | `https://token.sensenova.cn/v1` |
+| 默认凭据引用 | `SENSENOVA_API_KEY` |
+| 429 cooldown | `30000 ms` |
+| 最大 cooldown | `120000 ms` |
+| 连接超时 | `45000 ms` |
+| Stream idle timeout | `60000 ms` |
+| Context Window | `131072` |
 
-多 Key 示例：
+## Key 行为
 
-```yaml
-- id: llm-sensenova
-  name: "@ciaobye/dsh-sensenova-provider"
-  config:
-    apiBase: https://token.sensenova.cn/v1
-    keys:
-      - id: sn-a
-        label: SenseNova A
-        apiKeyEnv: SENSENOVA_API_KEY_A
-      - id: sn-b
-        label: SenseNova B
-        apiKeyEnv: SENSENOVA_API_KEY_B
-    cooldown429Ms: 30000
-    maxCooldown429Ms: 120000
-```
-
-推荐将 Key 保存到 DSH Credentials，或通过对应环境变量提供。插件配置和日志不会保存明文 API Key。
-
-## Key 处理规则
-
-| 情况 | 行为 |
+| 响应 | 行为 |
 | --- | --- |
 | `2xx` | 正常使用 |
-| `401` | 禁用当前 Key，并立即尝试下一 Key |
-| `429` | 当前 Key 进入 cooldown，并立即尝试下一 Key |
-| 全部 Key 限流 | 返回 `RATE_LIMIT`，等待最早 cooldown 到期后由 DSH 重试 |
+| `401` | 当前 Key 在插件生命周期内禁用，并尝试下一 Key |
+| `429` | 当前 Key 暂时冷却，并尝试下一 Key |
+| 全部 Key 限流 | 返回 `RATE_LIMIT`，由 DSH 在最早 cooldown 到期后重试 |
 
-插件同时尊重 `Retry-After`。SenseNova 特定限流代码会应用更合适的冷却时间。
-
-## Tool Call 兼容修复
-
-SenseNova 某些流式 Tool Call 后续 chunk 会返回空 `id` 或空 `function.name`。
-
-本插件以 `tool_calls[].index` 关联同一次 Tool Call，并且只接受非空 `id/name` 更新，因此不会让后续空字段覆盖已经收到的有效值。
+插件同时尊重 `Retry-After`。
 
 ## 兼容性
 
-- DSH：`>= 0.1.6-alpha.1 < 0.2.0`
+- DSH：`0.1.6-alpha.1`
 - Node.js：`>= 22`
-- Provider：`sensenova`
-
-当前基线：`dsh-v0.1.6-alpha.1`
+- Package：`@ciaobye/dsh-sensenova-provider`
 
 ## 开发
 
