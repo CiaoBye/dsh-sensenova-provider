@@ -1,11 +1,16 @@
 {
   "name": "@ciaobye/dsh-sensenova-provider",
-  "version": "0.2.0-alpha.1",
-  "description": "SenseNova LLM adapter for DeepSeek Harness 0.1.6+: multi-key rotation, 429 cooldown, 401 disable, and robust streamed tool-call repair.",
+  "version": "0.3.0-alpha.1",
+  "description": "SenseNova LLM adapter for DeepSeek Harness 0.1.6+: multi-key rotation, 429 cooldown, 401 disable, streamed tool-call repair, and a dedicated web settings page.",
   "type": "module",
   "main": "./index.js",
   "exports": {
-    ".": "./index.js",
+    ".": {
+      "default": "./index.js"
+    },
+    "./client": {
+      "default": "./client.js"
+    },
     "./adapter": "./adapter.js",
     "./pool": "./pool.js",
     "./openai-history": "./openai-history.js",
@@ -16,13 +21,24 @@
     "bundle": {
       "patch": "./cordis.patch.yml"
     },
-    "compat": {
-      "requires": ">=0.1.6-alpha.1 <0.2.0",
-      "kind": "provider"
+    "compatibility": {
+      "dshReleases": {
+        "0.1.6-alpha.1": "compatible"
+      }
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-api-remotes",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "platform": "web"
     }
   },
   "files": [
     "index.js",
+    "client.js",
     "adapter.js",
     "catalog.js",
     "http.js",
@@ -35,7 +51,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "check": "node --check index.js && node --check adapter.js && node --check catalog.js && node --check http.js && node --check pool.js && node --check openai-history.js && node --check sse-state.js && node --check openai-sse.js",
+    "check": "node --check index.js && node --check client.js && node --check adapter.js && node --check catalog.js && node --check http.js && node --check pool.js && node --check openai-history.js && node --check sse-state.js && node --check openai-sse.js",
     "test": "node --test"
   },
   "engines": {
@@ -47,7 +63,12 @@
     "@deepseek-ai/dsh-llm": ">=0.1.6-alpha.1 <0.2.0",
     "@deepseek-ai/dsh-settings": ">=0.1.6-alpha.1 <0.2.0",
     "@deepseek-ai/dsh-credentials": ">=0.1.6-alpha.1 <0.2.0",
-    "@deepseek-ai/dsh-launch-environment": ">=0.1.6-alpha.1 <0.2.0"
+    "@deepseek-ai/dsh-launch-environment": ">=0.1.6-alpha.1 <0.2.0",
+    "@deepseek-ai/dsh-api-remotes": ">=0.1.6-alpha.1 <0.2.0",
+    "@deepseek-ai/dsh-client-locale": ">=0.1.6-alpha.1 <0.2.0",
+    "@deepseek-ai/dsh-client-ui-renderer": ">=0.1.6-alpha.1 <0.2.0",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.1.6-alpha.1 <0.2.0",
+    "react": "^18.2.0"
   },
   "license": "MIT",
   "publishConfig": {
