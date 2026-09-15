@@ -2,70 +2,44 @@
 
 SenseNova Provider for **DeepSeek Harness (DSH)**.
 
-为 DSH 接入 SenseNova OpenAI-compatible API，并提供多 Key 轮转、401/429 自动切换、Tool Call 流式修复，以及独立的 Web 设置页。
+## 核心能力
 
-## 功能
-
-- SenseNova `/models` 与 `/chat/completions`
-- 多 Key 自动轮转
-- `401`：禁用当前 Key，立即切换下一 Key
-- `429`：当前 Key 进入 cooldown，立即切换下一 Key
-- 修复流式 Tool Call 后续 chunk 的空 `id` / `function.name`
-- DSH 设置侧栏独立 **SenseNova** 页面
-- API Key 通过 DSH Credentials 保存，不写入 `settings.yaml`
+- **多 Key 轮转**：自动使用可用 Key；支持手动指定首选 Key
+- **模型 → Key 路由**：第一条匹配规则优先，目标 Key 不可用时自动故障转移
+- **Key Pool 状态**：可查看可用、429 冷却、401 禁用、未配置与最近使用状态，并手动重置运行状态
+- **401 自动禁用 / 429 自动冷却**：尊重 `Retry-After`，全部 Key 限流时把最早恢复时间交给 DSH 重试
+- **模型白名单**：只控制 DSH 模型选择器显示范围，不限制底层 `resolveModel`
+- **完整 Credentials UX**：API Key 只写入 DSH Credentials；支持更换、清除、来源/可写状态显示
+- **字段级 Reset**：恢复 DSH composition/default 层，而不是把默认值硬写进用户配置
+- **Tool Call 流式修复**：空 `id` / `function.name` 不会覆盖前序有效值
+- **独立 Web 设置页**：Settings → SenseNova
 
 ## 安装
 
 ```sh
-dsh plugin --profile web add "github:CiaoBye/dsh-sensenova-provider#main"
+dsh plugin --profile web add "github:CiaoBye/dsh-sensenova-provider"
 ```
 
-安装后打开：
-
-```text
-设置 → SenseNova
-```
-
-可直接配置：
-
-- API Endpoint
-- 多个 API Key
-- 429 默认 / 最大冷却时间
-- 连接超时
-- Stream idle timeout
-- 默认 Context Window
-
-保存后对下一次请求生效，无需重启 DSH。
+插件升级后首次需要重启 DSH；之后在 SenseNova 设置页修改 Key、路由和参数无需重启。
 
 ## 默认值
 
-| 项目 | 默认值 |
-| --- | --- |
-| Provider ID | `sensenova` |
-| API Endpoint | `https://token.sensenova.cn/v1` |
-| 默认凭据引用 | `SENSENOVA_API_KEY` |
-| 429 cooldown | `30000 ms` |
-| 最大 cooldown | `120000 ms` |
-| 连接超时 | `45000 ms` |
-| Stream idle timeout | `60000 ms` |
-| Context Window | `131072` |
-
-## Key 行为
-
-| 响应 | 行为 |
-| --- | --- |
-| `2xx` | 正常使用 |
-| `401` | 当前 Key 在插件生命周期内禁用，并尝试下一 Key |
-| `429` | 当前 Key 暂时冷却，并尝试下一 Key |
-| 全部 Key 限流 | 返回 `RATE_LIMIT`，由 DSH 在最早 cooldown 到期后重试 |
-
-插件同时尊重 `Retry-After`。
-
-## 兼容性
-
-- DSH：`0.1.6-alpha.1`
+- Provider：`sensenova`
+- API：`https://token.sensenova.cn/v1`
+- 默认 Credential Ref：`SENSENOVA_API_KEY`
+- DSH：`>= 0.1.6-alpha.1 < 0.2.0`
 - Node.js：`>= 22`
-- Package：`@ciaobye/dsh-sensenova-provider`
+
+## 路由语义
+
+1. 命中第一条 `modelKeyRules` 时，该规则的 Key 成为本次请求首选 Key。
+2. 未命中规则时使用 `activeKey`。
+3. 未设置 `activeKey` 时按 Key Pool 自动轮转。
+4. 首选 Key 未配置、401 禁用或 429 冷却时，自动尝试其他可用 Key。
+
+## Token Plan / credits
+
+插件不会抓取 SenseNova 控制台的私有接口。只有在 SenseNova 发布稳定、公开的账户 credits / quota API 后，才会加入 Token Plan 用量与侧边栏额度卡。
 
 ## 开发
 

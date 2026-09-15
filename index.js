@@ -4,6 +4,7 @@ import { credentialRef, isCredentialRefName } from '@deepseek-ai/dsh-credentials
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { SenseNovaAdapter } from './adapter.js'
 import { KeyPool } from './pool.js'
+import { applyRuntimeRemote } from './runtime-remote.js'
 
 export const name = 'llm-sensenova'
 export const inject = ['llm']
@@ -13,13 +14,22 @@ const PROVIDER = 'sensenova'
 export const DEFAULT_API_BASE = 'https://token.sensenova.cn/v1'
 export const DEFAULT_API_KEY_ENV = 'SENSENOVA_API_KEY'
 
+const KeySchema = z.object({
+  id: z.string().default(''),
+  label: z.string().default(''),
+  apiKeyEnv: z.string().role('credential-ref').default(''),
+})
+const RuleSchema = z.object({
+  models: z.array(z.string()).default([]),
+  keyId: z.string().default(''),
+})
+
 export const Config = z.object({
   apiBase: z.string().default(DEFAULT_API_BASE),
-  keys: z.array(z.object({
-    id: z.string().default(''),
-    label: z.string().default(''),
-    apiKeyEnv: z.string().role('credential-ref').default(''),
-  })).default([{ id: 'default', label: 'Default', apiKeyEnv: DEFAULT_API_KEY_ENV }]),
+  keys: z.array(KeySchema).default([{ id: 'default', label: 'Default', apiKeyEnv: DEFAULT_API_KEY_ENV }]),
+  activeKey: z.string().default(''),
+  modelKeyRules: z.array(RuleSchema).default([]),
+  visibleModels: z.array(z.string()).default([]),
   cooldown429Ms: z.number().step(1).min(1).default(30_000),
   maxCooldown429Ms: z.number().step(1).min(1).default(120_000),
   connectTimeoutMs: z.number().step(1).min(1).default(45_000),
@@ -27,24 +37,40 @@ export const Config = z.object({
   defaultContextWindow: z.number().step(1).min(1).default(131_072),
 })
 
+function cleanStringArray(value) {
+  if (!Array.isArray(value)) return []
+  return [...new Set(value.filter(item => typeof item === 'string').map(item => item.trim()).filter(Boolean))]
+}
+
 export function resolveConfig(raw = {}) {
   const apiBase = typeof raw.apiBase === 'string' && raw.apiBase.trim() ? raw.apiBase.trim().replace(/\/+$/, '') : DEFAULT_API_BASE
   const sourceKeys = Array.isArray(raw.keys) && raw.keys.length > 0
     ? raw.keys
     : [{ id: 'default', label: 'Default', apiKeyEnv: DEFAULT_API_KEY_ENV }]
   const ids = new Set()
+  const refs = new Set()
   const keys = sourceKeys.map((entry, index) => {
     const id = typeof entry?.id === 'string' && entry.id.trim() ? entry.id.trim() : `key-${index + 1}`
     if (ids.has(id)) throw new Error(`llm-sensenova: duplicate key id "${id}"`)
     ids.add(id)
     const apiKeyEnv = typeof entry?.apiKeyEnv === 'string' ? entry.apiKeyEnv.trim() : ''
     if (!isCredentialRefName(apiKeyEnv)) throw new Error(`llm-sensenova: key "${id}" needs a valid credential reference`)
+    if (refs.has(apiKeyEnv)) throw new Error(`llm-sensenova: duplicate credential reference "${apiKeyEnv}"`)
+    refs.add(apiKeyEnv)
     return {
       id,
       label: typeof entry?.label === 'string' && entry.label.trim() ? entry.label.trim() : id,
       apiKeyEnv,
     }
   })
+  const activeKey = typeof raw.activeKey === 'string' && ids.has(raw.activeKey.trim()) ? raw.activeKey.trim() : ''
+  const modelKeyRules = Array.isArray(raw.modelKeyRules)
+    ? raw.modelKeyRules.map(rule => ({
+      models: cleanStringArray(rule?.models),
+      keyId: typeof rule?.keyId === 'string' ? rule.keyId.trim() : '',
+    })).filter(rule => rule.models.length > 0 && ids.has(rule.keyId))
+    : []
+  const visibleModels = cleanStringArray(raw.visibleModels)
   const cooldown429Ms = Number.isFinite(raw.cooldown429Ms) && raw.cooldown429Ms > 0 ? Math.floor(raw.cooldown429Ms) : 30_000
   const maxCooldown429Ms = Number.isFinite(raw.maxCooldown429Ms) && raw.maxCooldown429Ms > 0
     ? Math.max(cooldown429Ms, Math.floor(raw.maxCooldown429Ms))
@@ -52,6 +78,9 @@ export function resolveConfig(raw = {}) {
   return {
     apiBase,
     keys,
+    activeKey,
+    modelKeyRules,
+    visibleModels,
     cooldown429Ms,
     maxCooldown429Ms,
     connectTimeoutMs: Number.isFinite(raw.connectTimeoutMs) && raw.connectTimeoutMs > 0 ? Math.floor(raw.connectTimeoutMs) : 45_000,
@@ -95,10 +124,7 @@ export function apply(ctx, config) {
     return undefined
   }
 
-  const pool = new KeyPool({
-    slots: () => options().keys,
-    resolveKey: resolveSlotKey,
-  })
+  const pool = new KeyPool({ slots: () => options().keys, resolveKey: resolveSlotKey })
   const adapter = new SenseNovaAdapter({ options, pool })
 
   ctx.llm.registerConfigurableProviders([{
@@ -109,13 +135,7 @@ export function apply(ctx, config) {
   }])
 
   const registration = ctx.llm.registerAdapter([PROVIDER], adapter)
-  let registeredMaxCooldown = options().maxCooldown429Ms
-  const refreshRegistrationFacts = () => {
-    const next = options().maxCooldown429Ms
-    if (next === registeredMaxCooldown) return
-    registration.replace([PROVIDER])
-    registeredMaxCooldown = next
-  }
+  applyRuntimeRemote(ctx, { pool, adapter, options })
 
   ctx.inject(['settings'], (settingsCtx) => {
     settingsCtx.settings.installSection(ctx, NS, Config, config, {
@@ -123,7 +143,8 @@ export function apply(ctx, config) {
       onChange() {
         lastRaw = undefined
         lastGood = undefined
-        refreshRegistrationFacts()
+        // Re-announce the same route so open Clients invalidate provider/model facts.
+        registration.replace([PROVIDER])
       },
     })
   })

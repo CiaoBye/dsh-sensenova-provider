@@ -53,13 +53,13 @@ function combinedAbort(hostSignal, timeoutMs) {
   }
 }
 
-export async function requestWithPool({ url, initFactory, hostSignal, connection, pool, fetchImpl }) {
+export async function requestWithPool({ url, initFactory, hostSignal, connection, pool, fetchImpl, preferredId }) {
   const tried = new Set()
   let last429Delay
   let lastStatus
 
   while (tried.size < connection.keys.length) {
-    const selected = await pool.acquire({ exclude: tried })
+    const selected = await pool.acquire({ exclude: tried, preferredId })
     if (!selected) break
     tried.add(selected.slot.id)
     const abort = combinedAbort(hostSignal, connection.connectTimeoutMs)
