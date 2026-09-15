@@ -1,76 +1,52 @@
 {
-  "name": "dsh-account-pool",
-  "version": "0.3.0",
-  "description": "DeepSeek Harness plugin: provider-aware account pools for OpenCode Go, OpenCode Zen, and OpenRouter",
-  "license": "MIT",
-  "keywords": [
-    "deepseek-harness",
-    "dsh",
-    "plugin",
-    "opencode",
-    "opencode-go",
-    "openrouter",
-    "quota",
-    "usage",
-    "failover",
-    "api-key-pool"
-  ],
+  "name": "@ciaobye/dsh-sensenova-provider",
+  "version": "0.2.0-alpha.1",
+  "description": "SenseNova LLM adapter for DeepSeek Harness 0.1.6+: multi-key rotation, 429 cooldown, 401 disable, and robust streamed tool-call repair.",
   "type": "module",
   "main": "./index.js",
-  "engines": {
-    "node": ">=20"
-  },
-  "files": [
-    "index.js",
-    "pool.js",
-    "driver-core.js",
-    "drivers.js",
-    "catalog.js",
-    "usage.js",
-    "typert.host.js",
-    "client.js",
-    "cordis.patch.yml",
-    "README.md",
-    "LICENSE"
-  ],
   "exports": {
     ".": "./index.js",
-    "./client": "./client.js",
-    "./typert": "./typert.host.js",
-    "./drivers": "./drivers.js",
-    "./catalog": "./catalog.js",
+    "./adapter": "./adapter.js",
+    "./pool": "./pool.js",
+    "./openai-history": "./openai-history.js",
+    "./openai-sse": "./openai-sse.js",
     "./package.json": "./package.json"
   },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
-    },
-    "client": {
-      "inject": [
-        "@deepseek-ai/dsh-api-remotes",
-        "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-locale"
-      ],
-      "platform": "web"
     }
   },
-  "dependencies": {
-    "zod": "^4.0.0"
-  },
+  "files": [
+    "index.js",
+    "adapter.js",
+    "catalog.js",
+    "http.js",
+    "pool.js",
+    "openai-history.js",
+    "sse-state.js",
+    "openai-sse.js",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "node --test test/*.test.mjs"
+    "check": "node --check index.js && node --check adapter.js && node --check catalog.js && node --check http.js && node --check pool.js && node --check openai-history.js && node --check sse-state.js && node --check openai-sse.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "peerDependencies": {
-    "react": "^18.0.0",
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/schemastery": "^3.18.1",
-    "@deepseek-ai/dsh-typert-protocol": "^0.1.0-rc.5",
-    "@deepseek-ai/dsh-credentials": "^0.1.0-rc.5",
-    "@deepseek-ai/dsh-settings": "^0.1.0-rc.5",
-    "@deepseek-ai/dsh-llm": "^0.1.0-rc.5",
-    "@deepseek-ai/dsh-llm-pi-ai": "^0.1.0-rc.5",
-    "@deepseek-ai/dsh-home-paths": "^0.1.0-rc.5",
-    "@earendil-works/pi-ai": "^0.82.1"
+    "@deepseek-ai/cordis": ">=4.0.2",
+    "@deepseek-ai/schemastery": ">=3.18.2",
+    "@deepseek-ai/dsh-llm": ">=0.1.6-alpha.1 <0.2.0",
+    "@deepseek-ai/dsh-settings": ">=0.1.6-alpha.1 <0.2.0",
+    "@deepseek-ai/dsh-credentials": ">=0.1.6-alpha.1 <0.2.0",
+    "@deepseek-ai/dsh-launch-environment": ">=0.1.6-alpha.1 <0.2.0"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
   }
 }

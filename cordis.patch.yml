@@ -1,4 +1,11 @@
-# dsh-account-pool bundle: register the Host plugin and its browser client.
 - insert:
-    - id: dsh-account-pool
-      name: dsh-account-pool
+    - id: llm-sensenova
+      name: "@ciaobye/dsh-sensenova-provider"
+      config:
+        apiBase: https://token.sensenova.cn/v1
+        keys:
+          - id: default
+            label: Default
+            apiKeyEnv: SENSENOVA_API_KEY
+        cooldown429Ms: 30000
+        maxCooldown429Ms: 120000

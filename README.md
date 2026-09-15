@@ -1,134 +1,116 @@
-# dsh-account-pool
+# dsh-sensenova-provider
 
-DeepSeek Harness（DSH）插件：为 OpenCode Go、OpenCode Zen 和 OpenRouter 提供“账号池切换”工作台、独立多 Key 账号池、模型目录和故障切换。
+为 DeepSeek Harness (DSH) `v0.1.6-alpha.1+` 重写的 SenseNova LLM Adapter。
 
-## 能做什么
+## 功能
 
-- 每条 Provider 路由维护独立的 Key 列表、活动 Key、禁用/失效/耗尽状态和持久化状态。
-- 请求在输出内容前遇到额度或凭据失败时，自动切换到下一个可用 Key 并静默重试。
-- OpenCode Go 按 5 小时滚动、每周、每月窗口用量进行预切换和自动复活。
-- OpenRouter 按账户额度和剩余额度进行预切换；普通上游 429 不会误判为账号耗尽。
-- OpenCode Zen 当前没有公开用量接口，卡片展示“用量不可用”，仍支持请求失败切换。
-- 模型目录以本地 pi-ai catalog 为安全基线，并按 Provider 刷新官方/公开的 `/models` 响应。
-- 设置页入口名为“账号池切换”，默认打开“账号切换”工作台：当前账号、账号健康度和手动切换优先展示；Provider 来源仅作为紧凑上下文选择器。模型目录、账号管理和路由策略下沉到“设置”分区；模型目录使用顶部筛选工具栏、单栏分组折叠虚拟列表和底部保存栏，支持单模型、分组与筛选结果批量选择。
-
-## Provider 路由
-
-| Provider | DSH 路由 | 用量语义 | 默认模型目录 |
-| --- | --- | --- | --- |
-| OpenCode Go | `opencode-go` | 5h / weekly / monthly windows | `https://opencode.ai/zen/go/v1/models` |
-| OpenCode Zen | `opencode` | 暂不支持公开用量 | `https://opencode.ai/zen/v1/models` |
-| OpenRouter | `openrouter` | `/api/v1/key` 的 credits / limit | `https://openrouter.ai/api/v1/models` |
-
-插件默认尝试接管三条 canonical 路由；如果另一插件已经占用某条路由，该 Provider 会显示为 waiting，释放后通过 `llm/adapters-updated` 自动接管。可以在 Provider 配置中关闭 `enabled` 或 `takeover`。
+- `sensenova` Provider，走 SenseNova OpenAI-compatible `/chat/completions` 与 `/models`。
+- 多 Key 轮转：每次请求从可用 Key 池选择，失败时只在**首个响应内容之前**切换。
+- `401`：当前 Key 在本进程生命周期内永久禁用，立即尝试下一把 Key。
+- `429`：当前 Key 进入 cooldown，立即尝试下一把 Key；cooldown 到期后自动恢复。
+- SenseNova `error.code=8` 默认至少冷却 15 秒，`429001` 默认至少冷却 60 秒；同时尊重 `Retry-After`，并受 `maxCooldown429Ms` 限制。
+- Tool Call 修复：SenseNova 后续 SSE chunk 即使返回空 `id` / 空 `function.name`，也不会覆盖首个有效值。
+- 坏历史防护：空 tool name 丢弃；空 arguments 补 `{}`；空 id 生成临时稳定 id；孤立 tool result 不回放。
+- DSH 0.1.6 stream 契约：`usage` 永远在 `finish` 前发出，`finish` 后绝不再发 chunk。
+- API Key 仅保存 credential-ref / 环境变量名，不把明文 Key 写入插件配置或日志。
 
 ## 安装
 
+当前 GitHub 分支安装：
+
 ```sh
-dsh plugin --profile web add "github:CiaoBye/dsh-account-pool#main"
+dsh plugin --profile web add "github:CiaoBye/dsh-account-pool#sensenova-provider"
 ```
 
-当前仓库为私有 GitHub 仓库，安装前请确保本机 GitHub HTTPS 凭据或 SSH 权限可用。若使用 SSH，可改用 `git+ssh://git@github.com/CiaoBye/dsh-account-pool.git#main`。
+> 该分支是独立插件树，不会改动 `dsh-account-pool` 的 `main` 分支。
 
-重启 DSH 后，在设置侧边栏打开“账号池切换”。如果模型设置中已经有同名 Provider 行，先移除该行或关闭本插件对应 Provider 的 takeover，让路由归属保持唯一。
+重启 DSH 后，Provider ID 为：
+
+```text
+sensenova
+```
+
+默认 API 地址：
+
+```text
+https://token.sensenova.cn/v1
+```
 
 ## 配置
 
-新配置按 Provider 分组：
+默认只引用 `SENSENOVA_API_KEY`。多 Key 推荐全部使用 credential refs：
 
 ```yaml
-- id: account-pool
-  name: dsh-account-pool
+- id: llm-sensenova
+  name: "@ciaobye/dsh-sensenova-provider"
   config:
-    providers:
-      opencode-go:
-        enabled: true
-        takeover: true
-        keys:
-          - id: go-main
-            label: Go 主号
-            apiKeyEnv: OPENCODE_GO_KEY_A
-        preemptAtPercent: 100
-        switchAfterConsecutiveFailures: 0
-        modelMode: all
-        models: []
-      opencode:
-        enabled: true
-        takeover: true
-        keys: []
-      openrouter:
-        enabled: true
-        takeover: true
-        keys:
-          - id: router-main
-            label: Router 主号
-            apiKeyEnv: OPENROUTER_KEY_A
+    apiBase: https://token.sensenova.cn/v1
+    keys:
+      - id: sn-a
+        label: SenseNova A
+        apiKeyEnv: SENSENOVA_API_KEY_A
+      - id: sn-b
+        label: SenseNova B
+        apiKeyEnv: SENSENOVA_API_KEY_B
+      - id: sn-c
+        label: SenseNova C
+        apiKeyEnv: SENSENOVA_API_KEY_C
+    cooldown429Ms: 30000
+    maxCooldown429Ms: 120000
+    connectTimeoutMs: 45000
+    streamIdleTimeoutMs: 60000
+    defaultContextWindow: 131072
 ```
 
-支持的通用字段：
+把 Key 写进 DSH Credentials，或在启动 DSH 的可信环境里设置同名环境变量即可。
 
-| 字段 | 默认 | 作用 |
-| --- | --- | --- |
-| `enabled` | `true` | 是否启用该 Provider 池 |
-| `takeover` | `true` | 是否接管 canonical 路由 |
-| `keys` | `[]` | `{id, label, apiKeyEnv}` 列表 |
-| `preemptAtPercent` | `100` | 用量/余额达到阈值时提前避让；`100` 表示失败才切换 |
-| `switchAfterConsecutiveFailures` | `0` | 连续非额度失败达到 N 次后切换；`0` 关闭 |
-| `modelMode` | `all` | `all` 跟随目录；`custom` 仅暴露 `models` |
-| `models` | `[]` | 自定义模型 ID 列表 |
-| `usageBaseUrl` | 按 Provider | 用量接口地址；Zen 当前不使用 |
-| `modelsBaseUrl` | 按 Provider | 模型目录地址 |
-| `usageRefreshMs` | `30000` | 设置页轮询间隔 |
-| `catalogRefreshMs` | `300000` | live catalog 缓存时间 |
-| `timeoutMs` | `15000` | 用量请求超时 |
-
-原插件的 Go-only 扁平配置（`keys`、`route`、`usageBaseUrl` 等直接位于 `config` 下）在新的 composition entry 中会迁移到 `providers.opencode-go`。旧插件的运行状态文件不会被覆盖；新版本使用 `$DSH_HOME/dsh-account-pool.<provider>.state.json`，需要时可在确认无并发请求后手工迁移或重新配置。
-
-## 凭据与安全
-
-配置和 Remote 响应只保存 `apiKeyEnv` 凭据引用，不保存明文 Key。设置页的“密钥”输入会通过 DSH credentials seam 写入凭据存储；也可以使用凭据页、`~/.dsh/.credentials.yaml` 或受信任环境变量。
-
-不要把真实 Key 写入 `cordis.yml`、Git、日志或模型配置。多账号使用前请确认符合对应服务的条款和账号政策。
-
-## 故障切换规则
-
-1. `QUOTA`、OpenCode/Router 账户级 billing/credit failure 和 401 凭据失败会标记当前 Key 并尝试切换。
-2. OpenRouter 普通 429 被保留为可重试的瞬时错误，不会直接淘汰当前账户。
-3. 失败发生在任何内容输出前时，同一次 `stream()` 内静默重试。
-4. 已经输出内容后发生失败时，先记录切换，再把错误交给上层重试机制。
-5. 全部 Key 不可用时返回明确的 `QUOTA` finish，而不是发出没有凭据的请求。
-
-运行态包含活动 Key、耗尽/失效/禁用状态、最近一次切换和最近用量，分别写入：
+## Key 状态机
 
 ```text
-$DSH_HOME/dsh-account-pool.opencode-go.state.json
-$DSH_HOME/dsh-account-pool.opencode.state.json
-$DSH_HOME/dsh-account-pool.openrouter.state.json
+READY --401--> DISABLED   (直到插件重载/配置重建)
+READY --429--> COOLDOWN   (到期自动恢复 READY)
+READY --2xx--> READY
 ```
 
-## 开发与验证
+单次请求使用 `tried` 集合，不会在 A/B Key 之间来回乒乓。所有 Key 都在 cooldown 时，Adapter 抛 `RATE_LIMIT` 并给 DSH `providerRetryAfterMs`，由宿主 retry 层在最早 cooldown 到期后继续。
 
-仓库是纯 ESM，无构建步骤。核心实现分层如下：
+## Tool Call 空字段修复
 
-- `index.js`：Provider-neutral Host 服务、路由接管、池适配器和 Remote 方法。
-- `pool.js`：不依赖 DSH 的 KeyPool 状态机。
-- `driver-core.js` / `drivers.js`：Provider ID、失败分类、pi-ai Provider 和用量语义。
-- `usage.js`：OpenCode 窗口用量和 OpenRouter credits 解析。
-- `catalog.js`：静态 pi-ai catalog 与 live `/models` 合并。
-- `typert.host.js`：严格 Remote manifest。
-- `client.js`：lazy-CJS 浏览器设置页。
+SenseNova 有时会先发：
 
-运行测试：
+```json
+{"index":0,"id":"call_abc","function":{"name":"read_file","arguments":""}}
+```
+
+后续再发：
+
+```json
+{"index":0,"id":"","function":{"name":"","arguments":"{\"path\":"}}
+```
+
+插件以 `tool_calls[].index` 为第一关联键，只有**非空** `id/name` 才能更新槽位，因此后续空字段不会覆盖 `call_abc/read_file`。
+
+## DSH 版本
+
+开发基线：`dsh-v0.1.6-alpha.1`（2026-09-15）。依赖范围锁在 `@deepseek-ai/dsh-* >=0.1.6-alpha.1 <0.2.0`，避免静默跨越下一代破坏性 API。
+
+## 开发验证
 
 ```sh
-node --check index.js
-node --check client.js
+npm run check
 npm test
 npm pack --dry-run
 ```
 
-没有 DSH/React peer dependencies 的纯 checkout 会跳过 Host 集成和 React 渲染测试；这不等同于真实 DSH 加载验证，需在带完整 profile 依赖的环境中再验证插件激活、路由注册和 UI。
+测试覆盖：
 
-## 许可证
+- round-robin 多 Key
+- 401 disable
+- 429 cooldown / 自动恢复
+- Tool Call 后续空 `id/name` 不覆盖
+- `usage -> finish` 顺序
+- 坏历史 tool-call 清洗
+
+## License
 
 MIT
