@@ -1,6 +1,6 @@
 {
   "name": "@ciaobye/dsh-sensenova-provider",
-  "version": "0.3.0-alpha.1",
+  "version": "0.3.0-alpha.2",
   "description": "SenseNova LLM adapter for DeepSeek Harness 0.1.6+: multi-key rotation, 429 cooldown, 401 disable, streamed tool-call repair, and a dedicated web settings page.",
   "type": "module",
   "main": "./index.js",
