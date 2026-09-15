@@ -1,36 +1,31 @@
 # dsh-sensenova-provider
 
-为 DeepSeek Harness (DSH) `v0.1.6-alpha.1+` 重写的 SenseNova LLM Adapter。
+SenseNova Provider for **DeepSeek Harness (DSH)**.
 
-## 功能
+基于 SenseNova OpenAI-compatible API，为 DSH 提供模型接入、多 Key 轮转、限流切换，以及 Tool Call 流式兼容修复。
 
-- `sensenova` Provider，走 SenseNova OpenAI-compatible `/chat/completions` 与 `/models`。
-- 多 Key 轮转：每次请求从可用 Key 池选择，失败时只在**首个响应内容之前**切换。
-- `401`：当前 Key 在本进程生命周期内永久禁用，立即尝试下一把 Key。
-- `429`：当前 Key 进入 cooldown，立即尝试下一把 Key；cooldown 到期后自动恢复。
-- SenseNova `error.code=8` 默认至少冷却 15 秒，`429001` 默认至少冷却 60 秒；同时尊重 `Retry-After`，并受 `maxCooldown429Ms` 限制。
-- Tool Call 修复：SenseNova 后续 SSE chunk 即使返回空 `id` / 空 `function.name`，也不会覆盖首个有效值。
-- 坏历史防护：空 tool name 丢弃；空 arguments 补 `{}`；空 id 生成临时稳定 id；孤立 tool result 不回放。
-- DSH 0.1.6 stream 契约：`usage` 永远在 `finish` 前发出，`finish` 后绝不再发 chunk。
-- API Key 仅保存 credential-ref / 环境变量名，不把明文 Key 写入插件配置或日志。
+## 核心能力
+
+- **SenseNova 接入**：支持 `/models` 与 `/chat/completions`
+- **多 Key 轮转**：自动选择可用 Key，请求失败后切换下一 Key
+- **401 自动禁用**：失效 Key 在当前插件生命周期内停止使用
+- **429 自动冷却**：限流 Key 暂停使用，到期后自动恢复
+- **Tool Call 修复**：避免 SenseNova 流式返回空 `id` / `function.name` 覆盖前序有效值
+- **DSH 0.1.6 兼容**：符合当前 stream / usage / finish 契约
 
 ## 安装
 
-当前 GitHub 分支安装：
-
 ```sh
-dsh plugin --profile web add "github:CiaoBye/dsh-account-pool#sensenova-provider"
+dsh plugin --profile web add "github:CiaoBye/dsh-sensenova-provider"
 ```
 
-> 该分支是独立插件树，不会改动 `dsh-account-pool` 的 `main` 分支。
-
-重启 DSH 后，Provider ID 为：
+Provider ID：
 
 ```text
 sensenova
 ```
 
-默认 API 地址：
+默认 API：
 
 ```text
 https://token.sensenova.cn/v1
@@ -38,7 +33,13 @@ https://token.sensenova.cn/v1
 
 ## 配置
 
-默认只引用 `SENSENOVA_API_KEY`。多 Key 推荐全部使用 credential refs：
+单 Key 默认读取：
+
+```text
+SENSENOVA_API_KEY
+```
+
+多 Key 示例：
 
 ```yaml
 - id: llm-sensenova
@@ -52,64 +53,43 @@ https://token.sensenova.cn/v1
       - id: sn-b
         label: SenseNova B
         apiKeyEnv: SENSENOVA_API_KEY_B
-      - id: sn-c
-        label: SenseNova C
-        apiKeyEnv: SENSENOVA_API_KEY_C
     cooldown429Ms: 30000
     maxCooldown429Ms: 120000
-    connectTimeoutMs: 45000
-    streamIdleTimeoutMs: 60000
-    defaultContextWindow: 131072
 ```
 
-把 Key 写进 DSH Credentials，或在启动 DSH 的可信环境里设置同名环境变量即可。
+推荐将 Key 保存到 DSH Credentials，或通过对应环境变量提供。插件配置和日志不会保存明文 API Key。
 
-## Key 状态机
+## Key 处理规则
 
-```text
-READY --401--> DISABLED   (直到插件重载/配置重建)
-READY --429--> COOLDOWN   (到期自动恢复 READY)
-READY --2xx--> READY
-```
+| 情况 | 行为 |
+| --- | --- |
+| `2xx` | 正常使用 |
+| `401` | 禁用当前 Key，并立即尝试下一 Key |
+| `429` | 当前 Key 进入 cooldown，并立即尝试下一 Key |
+| 全部 Key 限流 | 返回 `RATE_LIMIT`，等待最早 cooldown 到期后由 DSH 重试 |
 
-单次请求使用 `tried` 集合，不会在 A/B Key 之间来回乒乓。所有 Key 都在 cooldown 时，Adapter 抛 `RATE_LIMIT` 并给 DSH `providerRetryAfterMs`，由宿主 retry 层在最早 cooldown 到期后继续。
+插件同时尊重 `Retry-After`。SenseNova 特定限流代码会应用更合适的冷却时间。
 
-## Tool Call 空字段修复
+## Tool Call 兼容修复
 
-SenseNova 有时会先发：
+SenseNova 某些流式 Tool Call 后续 chunk 会返回空 `id` 或空 `function.name`。
 
-```json
-{"index":0,"id":"call_abc","function":{"name":"read_file","arguments":""}}
-```
+本插件以 `tool_calls[].index` 关联同一次 Tool Call，并且只接受非空 `id/name` 更新，因此不会让后续空字段覆盖已经收到的有效值。
 
-后续再发：
+## 兼容性
 
-```json
-{"index":0,"id":"","function":{"name":"","arguments":"{\"path\":"}}
-```
+- DSH：`>= 0.1.6-alpha.1 < 0.2.0`
+- Node.js：`>= 22`
+- Provider：`sensenova`
 
-插件以 `tool_calls[].index` 为第一关联键，只有**非空** `id/name` 才能更新槽位，因此后续空字段不会覆盖 `call_abc/read_file`。
+当前基线：`dsh-v0.1.6-alpha.1`
 
-## DSH 版本
-
-开发基线：`dsh-v0.1.6-alpha.1`（2026-09-15）。依赖范围锁在 `@deepseek-ai/dsh-* >=0.1.6-alpha.1 <0.2.0`，避免静默跨越下一代破坏性 API。
-
-## 开发验证
+## 开发
 
 ```sh
 npm run check
 npm test
-npm pack --dry-run
 ```
-
-测试覆盖：
-
-- round-robin 多 Key
-- 401 disable
-- 429 cooldown / 自动恢复
-- Tool Call 后续空 `id/name` 不覆盖
-- `usage -> finish` 顺序
-- 坏历史 tool-call 清洗
 
 ## License
 
