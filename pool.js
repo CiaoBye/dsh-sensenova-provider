@@ -1,15 +1,77 @@
 /**
  * Multi-key runtime pool for SenseNova.
  * Runtime state is keyed by logical slot id; raw API keys never enter state.
+ *
+ * State is optionally seeded from a persisted snapshot and reported back on
+ * every change, so a cooldown or a 401 disable survives a DSH restart instead
+ * of making the next request re-discover a key that is already known bad. The
+ * pool itself stays storage-agnostic: it takes an initial snapshot and emits
+ * snapshots, and the caller owns persistence.
  */
+
+function isRecord(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function positiveInt(value) {
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
+}
+
 export class KeyPool {
-  constructor({ slots, resolveKey, now = () => Date.now() }) {
+  /**
+   * @param options - Pool wiring.
+   * @param options.slots - Supplies the configured key slots.
+   * @param options.resolveKey - Resolves a slot to its secret.
+   * @param options.now - Clock.
+   * @param options.initialState - Persisted snapshot to seed from.
+   * @param options.onStateChange - Called with a fresh snapshot after every mutation.
+   * @param options.disabledTtlMs - How long a restored 401 disable stays in force; `<= 0` means until reset. May be a getter so the value follows live configuration.
+   */
+  constructor({ slots, resolveKey, now = () => Date.now(), initialState, onStateChange, disabledTtlMs = 0 } = {}) {
     this.slots = slots
     this.resolveKey = resolveKey
     this.now = now
     this.state = new Map()
     this.cursor = 0
     this.lastUsedId = ''
+    this.initialState = isRecord(initialState) ? initialState : undefined
+    this.onStateChange = typeof onStateChange === 'function' ? onStateChange : undefined
+    this.disabledTtlMs = disabledTtlMs
+    this.persistence = 'memory'
+  }
+
+  _emptyState() {
+    return { disabled: false, disabledAt: 0, cooldownUntil: 0 }
+  }
+
+  /** Resolve the disable TTL, which may be supplied as a live-configuration getter. */
+  _ttl() {
+    const raw = typeof this.disabledTtlMs === 'function' ? this.disabledTtlMs() : this.disabledTtlMs
+    return Number.isFinite(raw) ? Math.floor(raw) : 0
+  }
+
+  /**
+   * Seed one slot's state from the persisted snapshot, dropping anything that
+   * has already expired. An expired 401 disable is deliberately forgotten: the
+   * credential may have been replaced in the meantime, and locking a key out
+   * forever is worse than retrying it once.
+   */
+  _restore(id) {
+    const state = this._emptyState()
+    const raw = this.initialState?.[id]
+    if (!isRecord(raw)) return state
+    const now = this.now()
+    state.cooldownUntil = Number.isFinite(raw.cooldownUntil) && raw.cooldownUntil > now ? Math.floor(raw.cooldownUntil) : 0
+    if (raw.disabled === true) {
+      const at = positiveInt(raw.disabledAt)
+      const ttl = this._ttl()
+      const expired = ttl > 0 && (at === 0 || now - at > ttl)
+      if (!expired) {
+        state.disabled = true
+        state.disabledAt = at
+      }
+    }
+    return state
   }
 
   _snapshotSlots() {
@@ -21,7 +83,7 @@ export class KeyPool {
       if (seen.has(item.id)) continue
       seen.add(item.id)
       slots.push(item)
-      if (!this.state.has(item.id)) this.state.set(item.id, { disabled: false, cooldownUntil: 0 })
+      if (!this.state.has(item.id)) this.state.set(item.id, this._restore(item.id))
     }
     for (const id of [...this.state.keys()]) {
       if (!seen.has(id)) this.state.delete(id)
@@ -32,10 +94,31 @@ export class KeyPool {
     return slots
   }
 
+  /**
+   * Snapshot the persistable state: only slots carrying a live disable or
+   * cooldown appear, so a healthy pool persists as an empty document.
+   * @returns Slot id to `{ disabled, disabledAt, cooldownUntil }`.
+   */
+  snapshotState() {
+    const out = {}
+    for (const [id, state] of this.state) {
+      if (!state.disabled && state.cooldownUntil === 0) continue
+      out[id] = { disabled: state.disabled, disabledAt: state.disabledAt ?? 0, cooldownUntil: state.cooldownUntil }
+    }
+    return out
+  }
+
+  _notify() {
+    if (!this.onStateChange) return
+    try {
+      this.onStateChange(this.snapshotState())
+    } catch {}
+  }
+
   status() {
     const now = this.now()
     return this._snapshotSlots().map((slot) => {
-      const state = this.state.get(slot.id) ?? { disabled: false, cooldownUntil: 0 }
+      const state = this.state.get(slot.id) ?? this._emptyState()
       return {
         id: slot.id,
         label: slot.label ?? slot.id,
@@ -50,7 +133,7 @@ export class KeyPool {
     const now = this.now()
     const keys = []
     for (const slot of this._snapshotSlots()) {
-      const state = this.state.get(slot.id) ?? { disabled: false, cooldownUntil: 0 }
+      const state = this.state.get(slot.id) ?? this._emptyState()
       let configured = false
       try {
         const key = await this.resolveKey(slot)
@@ -67,7 +150,7 @@ export class KeyPool {
         status: !configured ? 'missing' : state.disabled ? 'disabled' : cooling ? 'cooldown' : 'usable',
       })
     }
-    return { now, lastUsedId: this.lastUsedId, keys }
+    return { now, lastUsedId: this.lastUsedId, persistence: this.persistence, keys }
   }
 
   disable(id) {
@@ -75,7 +158,9 @@ export class KeyPool {
     const state = this.state.get(id)
     if (!state) return
     state.disabled = true
+    state.disabledAt = this.now()
     state.cooldownUntil = 0
+    this._notify()
   }
 
   cooldown(id, delayMs) {
@@ -84,27 +169,38 @@ export class KeyPool {
     if (!state || state.disabled) return
     const delay = Number.isFinite(delayMs) && delayMs > 0 ? delayMs : 1
     state.cooldownUntil = Math.max(state.cooldownUntil, this.now() + delay)
+    this._notify()
   }
 
   clearCooldown(id) {
     this._snapshotSlots()
     const state = this.state.get(id)
-    if (state && !state.disabled) state.cooldownUntil = 0
+    if (!state || state.disabled) return
+    if (state.cooldownUntil === 0) return
+    state.cooldownUntil = 0
+    this._notify()
   }
 
   reset(id) {
     this._snapshotSlots()
     if (id === '*') {
+      let changed = false
       for (const state of this.state.values()) {
+        if (state.disabled || state.cooldownUntil !== 0) changed = true
         state.disabled = false
+        state.disabledAt = 0
         state.cooldownUntil = 0
       }
+      if (changed) this._notify()
       return
     }
     const state = this.state.get(id)
     if (!state) return
+    if (!state.disabled && state.cooldownUntil === 0) return
     state.disabled = false
+    state.disabledAt = 0
     state.cooldownUntil = 0
+    this._notify()
   }
 
   earliestCooldownMs(exclude = new Set()) {

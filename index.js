@@ -4,6 +4,7 @@ import { credentialRef, isCredentialRefName } from '@deepseek-ai/dsh-credentials
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { SenseNovaAdapter } from './adapter.js'
 import { KeyPool } from './pool.js'
+import { RuntimeStateStore, defaultStateFilePath } from './state-store.js'
 import { applyRuntimeRemote } from './runtime-remote.js'
 
 export const name = 'llm-sensenova'
@@ -13,6 +14,7 @@ const NS = 'llm-sensenova'
 const PROVIDER = 'sensenova'
 export const DEFAULT_API_BASE = 'https://token.sensenova.cn/v1'
 export const DEFAULT_API_KEY_ENV = 'SENSENOVA_API_KEY'
+export const DEFAULT_DISABLED_STATE_TTL_MS = 1_800_000
 
 const KeySchema = z.object({
   id: z.string().default(''),
@@ -23,6 +25,10 @@ const RuleSchema = z.object({
   models: z.array(z.string()).default([]),
   keyId: z.string().default(''),
 })
+const EffortOverrideSchema = z.object({
+  model: z.string().default(''),
+  efforts: z.array(z.string()).default([]),
+})
 
 export const Config = z.object({
   apiBase: z.string().default(DEFAULT_API_BASE),
@@ -30,11 +36,15 @@ export const Config = z.object({
   activeKey: z.string().default(''),
   modelKeyRules: z.array(RuleSchema).default([]),
   visibleModels: z.array(z.string()).default([]),
+  reasoningEfforts: z.array(EffortOverrideSchema).default([]),
   cooldown429Ms: z.number().step(1).min(1).default(30_000),
   maxCooldown429Ms: z.number().step(1).min(1).default(120_000),
   connectTimeoutMs: z.number().step(1).min(1).default(45_000),
   streamIdleTimeoutMs: z.number().step(1).min(1).default(60_000),
   defaultContextWindow: z.number().step(1).min(1).default(131_072),
+  persistRuntimeState: z.boolean().default(true),
+  stateFilePath: z.string().default(''),
+  disabledStateTtlMs: z.number().step(1).min(0).default(DEFAULT_DISABLED_STATE_TTL_MS),
 })
 
 function cleanStringArray(value) {
@@ -71,6 +81,14 @@ export function resolveConfig(raw = {}) {
     })).filter(rule => rule.models.length > 0 && ids.has(rule.keyId))
     : []
   const visibleModels = cleanStringArray(raw.visibleModels)
+  const reasoningEfforts = {}
+  if (Array.isArray(raw.reasoningEfforts)) {
+    for (const entry of raw.reasoningEfforts) {
+      const model = typeof entry?.model === 'string' ? entry.model.trim() : ''
+      const efforts = cleanStringArray(entry?.efforts)
+      if (model && efforts.length > 0) reasoningEfforts[model] = efforts
+    }
+  }
   const cooldown429Ms = Number.isFinite(raw.cooldown429Ms) && raw.cooldown429Ms > 0 ? Math.floor(raw.cooldown429Ms) : 30_000
   const maxCooldown429Ms = Number.isFinite(raw.maxCooldown429Ms) && raw.maxCooldown429Ms > 0
     ? Math.max(cooldown429Ms, Math.floor(raw.maxCooldown429Ms))
@@ -81,11 +99,17 @@ export function resolveConfig(raw = {}) {
     activeKey,
     modelKeyRules,
     visibleModels,
+    reasoningEfforts,
     cooldown429Ms,
     maxCooldown429Ms,
     connectTimeoutMs: Number.isFinite(raw.connectTimeoutMs) && raw.connectTimeoutMs > 0 ? Math.floor(raw.connectTimeoutMs) : 45_000,
     streamIdleTimeoutMs: Number.isFinite(raw.streamIdleTimeoutMs) && raw.streamIdleTimeoutMs > 0 ? Math.floor(raw.streamIdleTimeoutMs) : 60_000,
     defaultContextWindow: Number.isFinite(raw.defaultContextWindow) && raw.defaultContextWindow > 0 ? Math.floor(raw.defaultContextWindow) : 131_072,
+    persistRuntimeState: raw.persistRuntimeState !== false,
+    stateFilePath: typeof raw.stateFilePath === 'string' ? raw.stateFilePath.trim() : '',
+    disabledStateTtlMs: Number.isFinite(raw.disabledStateTtlMs) && raw.disabledStateTtlMs >= 0
+      ? Math.floor(raw.disabledStateTtlMs)
+      : DEFAULT_DISABLED_STATE_TTL_MS,
   }
 }
 
@@ -124,7 +148,25 @@ export function apply(ctx, config) {
     return undefined
   }
 
-  const pool = new KeyPool({ slots: () => options().keys, resolveKey: resolveSlotKey })
+  const stateStore = new RuntimeStateStore({ logger: ctx.logger })
+  const syncStore = () => {
+    const next = options()
+    stateStore.filePath = next.persistRuntimeState
+      ? (next.stateFilePath || defaultStateFilePath())
+      : ''
+  }
+  syncStore()
+  ctx.effect(() => () => stateStore.close(), 'llm-sensenova: runtime state')
+
+  const pool = new KeyPool({
+    slots: () => options().keys,
+    resolveKey: resolveSlotKey,
+    initialState: stateStore.load(),
+    onStateChange: snapshot => stateStore.save(snapshot),
+    disabledTtlMs: () => options().disabledStateTtlMs,
+  })
+  pool.persistence = stateStore.enabled ? 'file' : 'memory'
+
   const adapter = new SenseNovaAdapter({ options, pool })
 
   ctx.llm.registerConfigurableProviders([{
@@ -143,6 +185,8 @@ export function apply(ctx, config) {
       onChange() {
         lastRaw = undefined
         lastGood = undefined
+        syncStore()
+        pool.persistence = stateStore.enabled ? 'file' : 'memory'
         // Re-announce the same route so open Clients invalidate provider/model facts.
         registration.replace([PROVIDER])
       },

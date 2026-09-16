@@ -45,7 +45,7 @@ export class SenseNovaAdapter extends LlmAdapter {
     try { payload = await response.json() } finally { release() }
     const next = new Map()
     for (const raw of Array.isArray(payload?.data) ? payload.data : []) {
-      const entry = parseCatalogModel(raw)
+      const entry = parseCatalogModel(raw, { effortOverrides: connection.reasoningEfforts })
       if (entry) next.set(entry.id, entry)
     }
     this.catalog = next

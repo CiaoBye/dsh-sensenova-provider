@@ -20,11 +20,46 @@
   - 将 `CHANGELOG.md` 加入 package `files` 列表，使发布 tarball 同时包含变更记录。
   - 确立后续代码与变更日志必须同提交更新的维护规则。
 
+- `feat: persist key-pool runtime state`
+  - KeyPool 的 `401` 禁用与 `429` 冷却现在会持久化到 `$DSH_HOME/storages/llm-sensenova/key-state.json`，DSH 重启后不再重复试探已知不可用的 Key。
+  - 新增 `state-store.js`：原子写（临时文件 + rename）、写合并（debounce）、文件缺失/损坏/不可读时安全降级为空状态，且绝不影响 Provider 启动。
+  - 新增配置 `persistRuntimeState`（默认开启）、`stateFilePath`、`disabledStateTtlMs`（默认 30 分钟，设为 `0` 表示必须手动重置）。
+  - 运行状态 Remote 新增 `persistence` 字段，用于区分 `file` / `memory`。
+
+- `feat: allow operator reasoning-effort overrides`
+  - 新增配置 `reasoningEfforts`，可按模型覆盖内置 reasoning effort 表，新模型上线不再必须等待插件发版。
+  - 新增 `catalog.js` 的 `resolveReasoningEfforts`，解析顺序为 **服务端 `/models` 数据 → 运维覆盖 → 内置兜底表**。
+  - 兼容服务端 `reasoning_efforts` 的字符串与 `{ id, name, description }` 两种形态，并保留 `description`。
+  - effort id 会去空白并去重。
+
 ### 变更
 
 - `docs: translate changelog to Chinese`
   - 将变更日志正文、版本说明、维护规则和变更分类统一改为中文。
   - 保留真实 Git Commit 标题、SHA、配置字段名与技术名词，确保可追溯性。
+
+### 修复
+
+- `fix: harden provider-card editor detection`
+  - 原生 Provider 编辑器的识别从 `className.includes('editor')` 改为 CSS-module token 精确匹配，不再误伤 `editorActions` / `editorHeader` / `editorTitle` / `editorRoute`。
+  - 兼容 credential-only 编辑器的根类名 `addBlock`，此前这类编辑器完全无法被识别。
+  - 卡片容器解析改为向上查找 `<li>`，不再依赖 `data-slot` 锚点的直接父节点。
+  - 隐藏与恢复改为按元素记录原始 `display` 值，卸载时精确还原，不再无条件清空 `style`。
+  - `MutationObserver` 同时观察 `childList` 与 `subtree`，编辑器切换可被稳定捕获。
+  - DOM 解析逻辑抽为纯函数并通过 `exports.__internals` 暴露，首次可由单元测试覆盖。
+  - 隐藏/恢复的副作用逻辑进一步抽为不依赖 React 的 `attachEditorSuppression`，从而可用真实 `MutationObserver` 时序测试挂载、切换与卸载。
+
+- `fix: do not advertise unverified reasoning efforts`
+  - `dsh-llm` 对不支持的显式 effort 会在 Provider I/O 之前直接拒绝且不做回退，因此内置猜测表是真实故障源，而不只是维护负担。
+  - 未知模型不再暴露 effort：宁可少显示，也不产生「选中即报错」的选项。
+
+- `fix: apply disabledStateTtlMs changes without a restart`
+  - `disabledStateTtlMs` 此前只在插件启动时读取一次，在设置页修改后不生效、需要重启 DSH；现在改为随实时配置读取，与其余配置项一致。
+
+### 验证
+
+- `npm run check`：通过。
+- `npm test`：65/65 通过。
 
 ---
 
