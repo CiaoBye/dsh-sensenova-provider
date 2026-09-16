@@ -4,6 +4,7 @@ import { credentialRef, isCredentialRefName } from '@deepseek-ai/dsh-credentials
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { SenseNovaAdapter } from './adapter.js'
 import { KeyPool } from './pool.js'
+import { slotsForCredentialRef } from './routing.js'
 import { RuntimeStateStore, defaultStateFilePath } from './state-store.js'
 import { applyRuntimeRemote } from './runtime-remote.js'
 
@@ -166,6 +167,18 @@ export function apply(ctx, config) {
     disabledTtlMs: () => options().disabledStateTtlMs,
   })
   pool.persistence = stateStore.enabled ? 'file' : 'memory'
+
+  // A committed credential change clears any 401 disable recorded against that
+  // reference. Without this, pasting a corrected key leaves the slot locked out
+  // until its TTL expires or the user finds "reset state" by hand.
+  ctx.inject(['credentials'], (credentialsCtx) => {
+    credentialsCtx.effect(
+      () => credentialsCtx.on('credentials/reference-updated', (ref) => {
+        for (const id of slotsForCredentialRef(options().keys, ref)) pool.reset(id)
+      }),
+      'llm-sensenova: credential-change reset',
+    )
+  })
 
   const adapter = new SenseNovaAdapter({ options, pool })
 
