@@ -31,6 +31,7 @@
 - `npm test` 改为 `node --test --test-isolation=none`：默认的逐文件子进程模型会在受限环境里连续启动大量 node 进程，触发 `0xc0000142`（`STATUS_DLL_INIT_FAILED`）。
 - 本 `[未发布]` 小节的条目改为对应真实提交：面向用户的描述与 `### 提交` 映射分开，并补上真实 Commit SHA，修正此前只有自拟标题、无法追溯的问题。
 - 「维护规则」明确为可执行条款：**每次提交都必须同步更新本文件**（不允许事后补记），`### 提交` **只能使用真实 SHA 与真实标题**，且描述与提交映射不得混成同一种格式。
+- 回填 `c238386`、`e670108` 的 Commit SHA，并首次推送本地提交到 `origin/main`。
 
 ### 修复
 
@@ -58,6 +59,10 @@
   - KeyPool 运行状态持久化、`reasoningEfforts` 覆盖、Provider 编辑器识别加固、`disabledStateTtlMs` 实时读取、`npm test` 单进程化。
 - `c55be7d` — `fix: register model discovery, unblock the catalog refresh, label key fields`
   - 注册 model discovery、修复模型目录刷新的启动竞态、补齐 Key Pool 的字段标签。
+- `c238386` — `docs: align the unreleased changelog with real commits`
+  - 把 `[未发布]` 的面向用户描述与真实提交映射分开，补上真实 SHA。
+- `e670108` — `docs: make the changelog commit-mapping rules explicit`
+  - 将「每次提交同步更新」与「只用真实 SHA/标题」固化为可执行条款。
 
 ---
 
