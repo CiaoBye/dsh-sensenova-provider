@@ -15,63 +15,47 @@
 
 ### 新增
 
-- `docs: establish changelog tracking`
-  - 新增 `CHANGELOG.md`，并回填从 `c2140c3` 开始的 SenseNova 项目历史。
-  - 将 `CHANGELOG.md` 加入 package `files` 列表，使发布 tarball 同时包含变更记录。
-  - 确立后续代码与变更日志必须同提交更新的维护规则。
-
-- `feat: persist key-pool runtime state`
-  - KeyPool 的 `401` 禁用与 `429` 冷却现在会持久化到 `$DSH_HOME/storages/llm-sensenova/key-state.json`，DSH 重启后不再重复试探已知不可用的 Key。
-  - 新增 `state-store.js`：原子写（临时文件 + rename）、写合并（debounce）、文件缺失/损坏/不可读时安全降级为空状态，且绝不影响 Provider 启动。
-  - 新增配置 `persistRuntimeState`（默认开启）、`stateFilePath`、`disabledStateTtlMs`（默认 30 分钟，设为 `0` 表示必须手动重置）。
-  - 运行状态 Remote 新增 `persistence` 字段，用于区分 `file` / `memory`。
-
-- `feat: allow operator reasoning-effort overrides`
-  - 新增配置 `reasoningEfforts`，可按模型覆盖内置 reasoning effort 表，新模型上线不再必须等待插件发版。
-  - 新增 `catalog.js` 的 `resolveReasoningEfforts`，解析顺序为 **服务端 `/models` 数据 → 运维覆盖 → 内置兜底表**。
-  - 兼容服务端 `reasoning_efforts` 的字符串与 `{ id, name, description }` 两种形态，并保留 `description`。
-  - effort id 会去空白并去重。
+- 建立 `CHANGELOG.md`，并回填从 `c2140c3` 开始的 SenseNova 项目历史；`CHANGELOG.md` 同时加入 package `files` 列表，使发布 tarball 包含变更记录。
+- 确立后续代码与变更日志必须同提交更新的维护规则。
+- KeyPool 的 `401` 禁用与 `429` 冷却现在会持久化到 `$DSH_HOME/storages/llm-sensenova/key-state.json`，DSH 重启后不再重复试探已知不可用的 Key。
+- 新增 `state-store.js`：原子写（临时文件 + rename）、写合并（debounce）、文件缺失/损坏/不可读时安全降级为空状态，且绝不影响 Provider 启动。
+- 新增配置 `persistRuntimeState`（默认开启）、`stateFilePath`、`disabledStateTtlMs`（默认 30 分钟，设为 `0` 表示必须手动重置）。
+- 运行状态 Remote 新增 `persistence` 字段，用于区分 `file` / `memory`。
+- 新增配置 `reasoningEfforts`，可按模型覆盖内置 reasoning effort 表，新模型上线不再必须等待插件发版。
+- 新增 `catalog.js` 的 `resolveReasoningEfforts`，解析顺序为 **服务端 `/models` 数据 → 运维覆盖 → 内置兜底表**；兼容服务端 `reasoning_efforts` 的字符串与 `{ id, name, description }` 两种形态并保留 `description`，effort id 去空白并去重。
 
 ### 变更
 
-- `docs: translate changelog to Chinese`
-  - 将变更日志正文、版本说明、维护规则和变更分类统一改为中文。
-  - 保留真实 Git Commit 标题、SHA、配置字段名与技术名词，确保可追溯性。
-
-- `chore: run the test suite in a single process`
-  - `npm test` 改为 `node --test --test-isolation=none`：默认的逐文件子进程模型会在受限环境里连续启动大量 node 进程，触发 `0xc0000142`（`STATUS_DLL_INIT_FAILED`）。
+- 将变更日志正文、版本说明、维护规则和变更分类统一改为中文，保留真实 Git Commit 标题、SHA 与配置字段名，确保可追溯性。
+- `npm test` 改为 `node --test --test-isolation=none`：默认的逐文件子进程模型会在受限环境里连续启动大量 node 进程，触发 `0xc0000142`（`STATUS_DLL_INIT_FAILED`）。
+- 本 `[未发布]` 小节的条目改为对应真实提交：面向用户的描述与 `### 提交` 映射分开，并补上真实 Commit SHA，修正此前只有自拟标题、无法追溯的问题。
 
 ### 修复
 
-- `fix: harden provider-card editor detection`
-  - 原生 Provider 编辑器的识别从 `className.includes('editor')` 改为 CSS-module token 精确匹配，不再误伤 `editorActions` / `editorHeader` / `editorTitle` / `editorRoute`。
-  - 兼容 credential-only 编辑器的根类名 `addBlock`，此前这类编辑器完全无法被识别。
-  - 卡片容器解析改为向上查找 `<li>`，不再依赖 `data-slot` 锚点的直接父节点。
-  - 隐藏与恢复改为按元素记录原始 `display` 值，卸载时精确还原，不再无条件清空 `style`。
-  - `MutationObserver` 同时观察 `childList` 与 `subtree`，编辑器切换可被稳定捕获。
-  - DOM 解析逻辑抽为纯函数并通过 `exports.__internals` 暴露，首次可由单元测试覆盖。
-  - 隐藏/恢复的副作用逻辑进一步抽为不依赖 React 的 `attachEditorSuppression`，从而可用真实 `MutationObserver` 时序测试挂载、切换与卸载。
-
-- `fix: do not advertise unverified reasoning efforts`
-  - `dsh-llm` 对不支持的显式 effort 会在 Provider I/O 之前直接拒绝且不做回退，因此内置猜测表是真实故障源，而不只是维护负担。
-  - 未知模型不再暴露 effort：宁可少显示，也不产生「选中即报错」的选项。
-
-- `fix: apply disabledStateTtlMs changes without a restart`
-  - `disabledStateTtlMs` 此前只在插件启动时读取一次，在设置页修改后不生效、需要重启 DSH；现在改为随实时配置读取，与其余配置项一致。
-
-- `fix: register model discovery and stop dropping the catalog refresh`
-  - `discoverModels` 要求该 namespace 通过 `ctx.llm.registerModelDiscovery` 注册处理器，本插件此前从未注册，因此回退路径必然以 `llm/model-discovery-rejected` 失败。
-  - 修复设置页「模型目录读取失败」的启动竞态：Controller 在 runtime Remote 挂载之前就发起了首次刷新，而 `_loading` 守卫会**静默丢弃** `setRuntimeApi` 触发的第二次刷新，使失败一直保留到用户手动点「刷新模型」。现在第二次刷新会排队，并在当前请求结束后重跑。
-  - Adapter 新增 `discoverModels`：目录已加载时直接由缓存回答，不额外发网络请求。
-
-- `fix: label the key-pool name and api-key inputs`
-  - Key Pool 中「名称」与「API 密钥」两个输入框此前没有标签，语言包里的 `name` / `secret` 定义了却从未被引用，用户无从分辨哪个是哪个。
-  - 两项标签现已实际生效；凭据来源信息移到密钥输入框下方。
+- 原生 Provider 编辑器的识别从 `className.includes('editor')` 改为 CSS-module token 精确匹配，不再误伤 `editorActions` / `editorHeader` / `editorTitle` / `editorRoute`；并兼容 credential-only 编辑器的根类名 `addBlock`，此前这类编辑器完全无法被识别。
+- 卡片容器解析改为向上查找 `<li>`，不再依赖 `data-slot` 锚点的直接父节点；隐藏与恢复改为按元素记录原始 `display` 值并在卸载时精确还原，不再无条件清空 `style`；`MutationObserver` 同时观察 `childList` 与 `subtree`。
+- DOM 解析与副作用逻辑抽为不依赖 React 的纯函数（`attachEditorSuppression` 等），此前完全无法测试，现可用真实 `MutationObserver` 时序覆盖挂载、切换与卸载。
+- 不再对未知模型暴露未经验证的 reasoning effort：`dsh-llm` 对不支持的显式 effort 会在 Provider I/O 之前直接拒绝且不做回退，内置猜测表因此是真实故障源，而不只是维护负担。
+- `disabledStateTtlMs` 此前只在插件启动时读取一次，在设置页修改后不生效、需要重启 DSH；现在改为随实时配置读取，与其余配置项一致。
+- 注册 `ctx.llm.registerModelDiscovery`：本插件此前从未注册，导致设置页模型目录的回退路径必然以 `llm/model-discovery-rejected` 失败。
+- 修复设置页「模型目录读取失败」的启动竞态：Controller 在 runtime Remote 挂载之前就发起了首次刷新，而 `_loading` 守卫会**静默丢弃** `setRuntimeApi` 触发的第二次刷新，使失败一直保留到用户手动点「刷新模型」；现在第二次刷新会排队，并在当前请求结束后重跑。
+- Key Pool 中「名称」与「API 密钥」两个输入框此前没有标签，语言包里的 `name` / `secret` 定义了却从未被引用，用户无从分辨哪个是哪个；两项标签现已实际生效，凭据来源信息移到密钥输入框下方。
 
 ### 验证
 
 - `npm run check`：通过。
 - `npm test`：70/70 通过。
+
+### 提交
+
+- `0ab7d60` — `docs: establish changelog tracking`
+  - 新增 `CHANGELOG.md` 并回填 SenseNova 项目历史，确立代码与变更日志同提交更新的维护规则。
+- `93a5e21` — `docs: translate changelog to Chinese`
+  - 将变更日志统一改为中文，保留真实 Git Commit 标题与技术名词以便追溯。
+- `f2da9b8` — `feat: persist key-pool state, add effort overrides, harden provider-card detection`
+  - KeyPool 运行状态持久化、`reasoningEfforts` 覆盖、Provider 编辑器识别加固、`disabledStateTtlMs` 实时读取、`npm test` 单进程化。
+- `c55be7d` — `fix: register model discovery, unblock the catalog refresh, label key fields`
+  - 注册 model discovery、修复模型目录刷新的启动竞态、补齐 Key Pool 的字段标签。
 
 ---
 
