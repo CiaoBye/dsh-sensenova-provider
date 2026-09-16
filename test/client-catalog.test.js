@@ -86,6 +86,39 @@ test('a failed refresh still surfaces when nothing is queued', async () => {
   controller.dispose()
 })
 
+/**
+ * An empty allowlist means "every model", so pre-ticking the whole catalog read
+ * as "only these are allowed" — the opposite of the stored state. Nothing is
+ * pre-selected now, and ticking one model selects exactly that one.
+ */
+test('the model allowlist starts empty and selection is deliberate', async () => {
+  const { Controller } = loadBundle().__internals
+  const controller = new Controller(makeScope(), {}, {})
+  await tick()
+  controller.catalog = [{ id: 'm1' }, { id: 'm2' }, { id: 'm3' }]
+
+  assert.equal(controller.draft.visibleModels.length, 0, 'nothing is pre-selected')
+
+  controller.toggleModel('m2', true)
+  assert.deepEqual([...controller.draft.visibleModels], ['m2'], 'ticking one model selects exactly that one')
+
+  controller.toggleModel('m1', true)
+  assert.deepEqual([...controller.draft.visibleModels], ['m1', 'm2'])
+
+  controller.toggleModel('m1', false)
+  assert.deepEqual([...controller.draft.visibleModels], ['m2'])
+
+  controller.toggleModel('m2', false)
+  assert.equal(controller.draft.visibleModels.length, 0, 'unticking the last one returns to "every model"')
+
+  controller.toggleModel('m1', true)
+  controller.toggleModel('m2', true)
+  controller.toggleModel('m3', true)
+  assert.equal(controller.draft.visibleModels.length, 0, 'ticking every model normalises back to empty')
+
+  controller.dispose()
+})
+
 test('the key-pool inputs are labelled', () => {
   const code = fs.readFileSync(path.join(root, 'client.js'), 'utf8')
   assert.ok(code.includes("t('name')"), 'the name field must carry a label')
