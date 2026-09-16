@@ -177,6 +177,11 @@ export function apply(ctx, config) {
   }])
 
   const registration = ctx.llm.registerAdapter([PROVIDER], adapter)
+  // Without a discovery handler for this namespace, a draft interrogation
+  // rejects with `llm/model-discovery-rejected` — which is exactly what the
+  // settings page's model catalog falls back to when the runtime Remote is not
+  // mounted yet.
+  ctx.llm.registerModelDiscovery(NS, (request, signal) => adapter.discoverModels(request, signal))
   applyRuntimeRemote(ctx, { pool, adapter, options })
 
   ctx.inject(['settings'], (settingsCtx) => {

@@ -1,7 +1,7 @@
 import { LlmAdapter, LlmError, attributionHeaders, resolveRetryPolicy } from '@deepseek-ai/dsh-llm'
 import { buildOpenAiBody } from './openai-history.js'
 import { parseOpenAiSse } from './openai-sse.js'
-import { displayName, parseCatalogModel } from './catalog.js'
+import { displayName, parseCatalogModel, toDiscoveredModel } from './catalog.js'
 import { requestWithPool } from './http.js'
 import { modelIsVisible, preferredKeyForModel } from './routing.js'
 
@@ -33,12 +33,12 @@ export class SenseNovaAdapter extends LlmAdapter {
     })
   }
 
-  async listAllModels(provider = 'sensenova') {
+  async listAllModels(provider = 'sensenova', hostSignal) {
     const connection = this.options()
     const { response, release } = await this._request(
       `${connection.apiBase}/models`,
       key => ({ headers: { accept: 'application/json', authorization: `Bearer ${key}`, ...attributionHeaders() } }),
-      AbortSignal.timeout(MODELS_TIMEOUT_MS),
+      hostSignal ?? AbortSignal.timeout(MODELS_TIMEOUT_MS),
       connection.activeKey || undefined,
     )
     let payload
@@ -53,6 +53,20 @@ export class SenseNovaAdapter extends LlmAdapter {
       provider, id: entry.id, name: entry.name, inputModalities: entry.inputModalities,
       contextWindow: entry.contextWindow, maxTokens: entry.maxTokens,
     }))
+  }
+
+  /**
+   * Answer one model-discovery draft for this provider's namespace. This
+   * adapter already knows its models, so a warmed catalog answers from that
+   * knowledge without another network call.
+   * @param request - The draft interrogation request.
+   * @param signal - Caller cancellation.
+   * @returns Advertised models in catalog order.
+   */
+  async discoverModels(request = {}, signal) {
+    const provider = typeof request?.provider === 'string' && request.provider ? request.provider : 'sensenova'
+    if (this.catalog.size === 0) await this.listAllModels(provider, signal)
+    return [...this.catalog.values()].map(toDiscoveredModel)
   }
 
   async listModels(provider) {

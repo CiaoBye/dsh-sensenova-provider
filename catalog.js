@@ -118,3 +118,19 @@ export function parseCatalogModel(raw, { effortOverrides } = {}) {
     ...(efforts?.length ? { reasoning: { efforts } } : {}),
   }
 }
+
+/**
+ * Project one parsed catalog entry onto the shape `dsh-llm` model discovery
+ * accepts (`LlmDiscoveredModel`). Optional fields are omitted rather than sent
+ * as `undefined`, so the harness sees "not disclosed" instead of a null.
+ * @param entry - A parsed catalog entry.
+ * @returns The discovered-model projection.
+ */
+export function toDiscoveredModel(entry) {
+  return {
+    id: entry.id,
+    name: entry.name,
+    ...(entry.contextWindow ? { contextWindow: entry.contextWindow } : {}),
+    ...(entry.maxTokens ? { maxTokens: entry.maxTokens } : {}),
+  }
+}

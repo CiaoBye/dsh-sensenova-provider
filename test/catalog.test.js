@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { builtinEfforts, parseCatalogModel, resolveReasoningEfforts } from '../catalog.js'
+import { builtinEfforts, parseCatalogModel, resolveReasoningEfforts, toDiscoveredModel } from '../catalog.js'
 
 test('the live server payload wins over the built-in guess', () => {
   assert.deepEqual(
@@ -81,4 +81,12 @@ test('parseCatalogModel still reads context and output caps', () => {
   const entry = parseCatalogModel({ id: 'x', context_length: 8192, max_output_length: 1024 })
   assert.equal(entry.contextWindow, 8192)
   assert.equal(entry.maxTokens, 1024)
+})
+
+test('toDiscoveredModel omits undisclosed fields rather than sending undefined', () => {
+  assert.deepEqual(toDiscoveredModel({ id: 'm', name: 'M' }), { id: 'm', name: 'M' })
+  assert.deepEqual(
+    toDiscoveredModel({ id: 'm', name: 'M', contextWindow: 8192, maxTokens: 1024 }),
+    { id: 'm', name: 'M', contextWindow: 8192, maxTokens: 1024 },
+  )
 })

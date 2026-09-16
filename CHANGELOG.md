@@ -38,6 +38,9 @@
   - 将变更日志正文、版本说明、维护规则和变更分类统一改为中文。
   - 保留真实 Git Commit 标题、SHA、配置字段名与技术名词，确保可追溯性。
 
+- `chore: run the test suite in a single process`
+  - `npm test` 改为 `node --test --test-isolation=none`：默认的逐文件子进程模型会在受限环境里连续启动大量 node 进程，触发 `0xc0000142`（`STATUS_DLL_INIT_FAILED`）。
+
 ### 修复
 
 - `fix: harden provider-card editor detection`
@@ -56,10 +59,19 @@
 - `fix: apply disabledStateTtlMs changes without a restart`
   - `disabledStateTtlMs` 此前只在插件启动时读取一次，在设置页修改后不生效、需要重启 DSH；现在改为随实时配置读取，与其余配置项一致。
 
+- `fix: register model discovery and stop dropping the catalog refresh`
+  - `discoverModels` 要求该 namespace 通过 `ctx.llm.registerModelDiscovery` 注册处理器，本插件此前从未注册，因此回退路径必然以 `llm/model-discovery-rejected` 失败。
+  - 修复设置页「模型目录读取失败」的启动竞态：Controller 在 runtime Remote 挂载之前就发起了首次刷新，而 `_loading` 守卫会**静默丢弃** `setRuntimeApi` 触发的第二次刷新，使失败一直保留到用户手动点「刷新模型」。现在第二次刷新会排队，并在当前请求结束后重跑。
+  - Adapter 新增 `discoverModels`：目录已加载时直接由缓存回答，不额外发网络请求。
+
+- `fix: label the key-pool name and api-key inputs`
+  - Key Pool 中「名称」与「API 密钥」两个输入框此前没有标签，语言包里的 `name` / `secret` 定义了却从未被引用，用户无从分辨哪个是哪个。
+  - 两项标签现已实际生效；凭据来源信息移到密钥输入框下方。
+
 ### 验证
 
 - `npm run check`：通过。
-- `npm test`：65/65 通过。
+- `npm test`：70/70 通过。
 
 ---
 

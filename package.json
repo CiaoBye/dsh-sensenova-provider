@@ -34,7 +34,7 @@
   ],
   "scripts": {
     "check": "node --check index.js && node --check client.js && node --check adapter.js && node --check catalog.js && node --check http.js && node --check pool.js && node --check routing.js && node --check runtime-remote.js && node --check state-store.js && node --check openai-history.js && node --check sse-state.js && node --check openai-sse.js",
-    "test": "node --test"
+    "test": "node --test --test-isolation=none"
   },
   "engines": { "node": ">=22" },
   "peerDependencies": {
