@@ -78,8 +78,10 @@
   - 把 `[未发布]` 的面向用户描述与真实提交映射分开，补上真实 SHA。
 - `e670108` — `docs: make the changelog commit-mapping rules explicit`
   - 将「每次提交同步更新」与「只用真实 SHA/标题」固化为可执行条款。
-- `chore: declare DSH 0.1.6-alpha.2 compatibility`
-  - `dshReleases` 增加 `0.1.6-alpha.2`，补上官方 manifest 字段 `engines.dsh`，README 增加兼容性声明说明。（SHA 待回填）
+- `5870eee` — `fix: align model efforts with the vendor table and drop dead routes`
+  - 内置 reasoning effort 表按厂商文档收敛到真正有区分度的档位，模型目录剔除三个无法派发的路由。
+- `38cd449` — `chore: declare DSH 0.1.6-alpha.2 compatibility`
+  - `dshReleases` 增加 `0.1.6-alpha.2`，补上官方 manifest 字段 `engines.dsh`，README 增加兼容性声明说明。
 
 ---
 
