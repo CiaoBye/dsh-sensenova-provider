@@ -32,6 +32,8 @@
 - 本 `[未发布]` 小节的条目改为对应真实提交：面向用户的描述与 `### 提交` 映射分开，并补上真实 Commit SHA，修正此前只有自拟标题、无法追溯的问题。
 - 「维护规则」明确为可执行条款：**每次提交都必须同步更新本文件**（不允许事后补记），`### 提交` **只能使用真实 SHA 与真实标题**，且描述与提交映射不得混成同一种格式。
 - 回填 `c238386`、`e670108` 的 Commit SHA，并首次推送本地提交到 `origin/main`。
+- 跟进 DSH `0.1.6-alpha.2`：`dsh.compatibility.dshReleases` 增加该版本的实测记录；同时按 DSH 公开的 package manifest 规范补上 `engines.dsh`（`>=0.1.6-alpha.1 <0.2.0`）。此前兼容范围只写在 README 和 peerDependencies 里，官方 manifest 字段是空的，外部工具读不到。
+- README 增加「DSH 兼容性声明」小节，写明两个字段的分工：`engines.dsh` 声明范围，`dshReleases` 逐版本记录**实测过**的版本；没有实测过的版本不写 `compatible`。
 
 ### 修复
 
@@ -48,11 +50,19 @@
 - 模型白名单不再默认全选：`visibleModels` 为空表示「显示全部」，但 UI 曾把目录里的每个模型都标成已勾选，读起来恰好相反（像「只允许这些」）。现在空白名单就是**一个都不勾选**，勾选语义与存储语义一致，文案也改为「一个都不勾选时显示全部模型」。
 - `toggleModel` 同步修正：它此前同样假定「空名单等于全部」，只改 UI 的话勾选一个模型会被归一化回空名单，白名单将完全失效。标题栏另加「全部模型 / 已选 N / 总数」摘要。
 - 模型白名单改为折叠呈现：此前把目录里的模型全部平铺成 checkbox 列表，一屏铺满；现在默认只显示一行摘要（「全部模型」或「已选 N / 总数」），点击才展开勾选，与 Command Code 的白名单控件一致。
+- 内置 reasoning effort 表不再把网关的**合法值域**当成**受支持档位**：`medium` / `xhigh` 会返回 `200`，但 SenseNova 明确说明二者**均映射为 `high`**，把它们当成独立档位，用户选 `xhigh` 想加强思考却实际得到 `high`，且没有任何报错可循——比缺档更难察觉。现已按各模型官方文档只保留有实际区分度的档位：`glm-5.2` 修正为 `high` / `max`（此前误写为 `low` / `medium` / `high` / `none`，既缺真实档位又混入别名），`deepseek-v4-flash` 与 `sensenova-6.8-flash-lite` 收敛为 `low` / `high`；`deepseek-v4-pro`、`kimi-k3` 经核对与官方一致，保持不变。
+- 模型目录不再收录无法派发的路由：`/models` 仍在广告 `sensenova-6.7-flash-lite`、`sensenova-u1-fast`、`sensenova-u1.5-lite`，但三者对 `chat/completions` 一律返回 `404`（连测 3 轮，每轮都穿插一个可用模型作对照，对照组 3 轮均 `200`，因此是稳定失效而非抖动）。此前它们会进入设置页的模型目录，且当模型白名单为空（即显示全部）时会直接出现在模型选择器里，用户选中后第一次对话必定失败，看起来像插件故障。现已在 `parseCatalogModel` 按 id 排除，`UNAVAILABLE_MODELS` 同时记录排除依据与复查时机。两个 `u1` 模型声明 `output_modalities: ["image"]`，本质是图像生成模型，无法走 chat 接口。
 
 ### 验证
 
 - `npm run check`：通过。
-- `npm test`：73/73 通过。
+- `npm test`：78/78 通过。
+- 逐模型实打实发请求核验：`glm-5.2` 的 `high` / `max`、两个 flash 模型的 `low` / `high`、`deepseek-v4-pro` 与 `kimi-k3` 的全部档位均返回 `200`；`medium` / `xhigh` / `minimal` 已确认不在表内。
+- 用线上 `/models` 真实响应跑一遍 `parseCatalogModel`：广告 8 个模型，目录保留 5 个，被丢弃的正好是上述三个，其余模型与其档位未受影响。
+- 在 DSH `0.1.6-alpha.2` 上实机加载本插件并真实发请求：用临时 `DSH_HOME`（workspace 内）跑 `dsh --profile headless --patch <指向本仓库 index.js 的 overlay>`，把默认模型设为 `sensenova/deepseek-v4-flash`，模型回复 `OK`，session token 用量 7298 in / 12 out；插件在临时 home 下写出 `storages/llm-sensenova/key-state.json`（Host 侧注册、KeyPool 与持久化都在 alpha.2 下正常工作），该次记录里的 `cooldownUntil` 比请求开始晚 30 秒，说明这轮请求命中过 429 冷却路径并最终仍成功返回。
+- 逐项核对 alpha.2 的 API 契约，确认无需改代码：`dsh-llm` 的 `LlmAdapter`（`providerInfo` / `listModels` / `resolveModel` / `stream`）、`LlmConfigurableProvider`、`AdapterRegistrationHandle.replace`、`registerModelDiscovery`；`dsh-settings` 的 `installSection` 与 `setSource` / `onChange` 钩子；`dsh-typert-protocol` 的 `TypertRemoteContribution` 与 `register`；设置页 `settings.section`、`settings.models.provider-card` 槽位；客户端 `ctx.remote.$mount(contribution)` 与 `$on(event, listener)`。
+- `npm run check`：通过。
+- `npm test`：78/78 通过（新增的兼容性断言要求 `dshReleases` 与 `engines.dsh` 同步）。
 
 ### 提交
 
@@ -68,6 +78,8 @@
   - 把 `[未发布]` 的面向用户描述与真实提交映射分开，补上真实 SHA。
 - `e670108` — `docs: make the changelog commit-mapping rules explicit`
   - 将「每次提交同步更新」与「只用真实 SHA/标题」固化为可执行条款。
+- `chore: declare DSH 0.1.6-alpha.2 compatibility`
+  - `dshReleases` 增加 `0.1.6-alpha.2`，补上官方 manifest 字段 `engines.dsh`，README 增加兼容性声明说明。（SHA 待回填）
 
 ---
 

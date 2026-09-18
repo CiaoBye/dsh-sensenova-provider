@@ -17,4 +17,19 @@ test('client registers SenseNova settings and models-card surfaces', () => {
   const ctx={ effect(){}, inject(){}, locale:{register(){return()=>{}},bind(){return(k)=>k}}, remote:{credentials:{describe:async()=>({ok:true,value:{}})},llm:{discoverModels:async()=>({ok:true,value:[]})},$on(){return()=>{}}}, settingsScope:{bind(){return scope}}, slots:{inject(_n,fn){fn()},register(meta,component){registered.push({meta,component});return()=>{}}} };
   mod.apply(ctx); assert.equal(registered.find(x=>x.meta.name==='settings.section').meta.id,'sensenova'); assert.equal(registered.find(x=>x.meta.name==='settings.models.provider-card').meta.key,'llm-sensenova')
 })
-test('package publishes 0.4 web client compatibility', () => { const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8')); assert.equal(pkg.version,'0.4.0-alpha.1'); assert.equal(pkg.exports['./client'].default,'./client.js'); assert.equal(pkg.dsh.compatibility.dshReleases['0.1.6-alpha.1'],'compatible'); assert.ok(pkg.files.includes('runtime-remote.js')) })
+test('package declares the exact DSH releases it was verified against', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
+  assert.equal(pkg.version, '0.4.0-alpha.1')
+  assert.equal(pkg.exports['./client'].default, './client.js')
+  assert.ok(pkg.files.includes('runtime-remote.js'))
+  // One entry per release the plugin was actually exercised against, pinned
+  // exactly: a release that runs but is unlisted reads as unverified, so the
+  // follow-up for a new DSH release is to test it and add its version here.
+  assert.deepEqual(pkg.dsh.compatibility.dshReleases, {
+    '0.1.6-alpha.1': 'compatible',
+    '0.1.6-alpha.2': 'compatible',
+  })
+  // `engines.dsh` is the official package-manifest field for the same claim
+  // (`dsh.compatibility` is this plugin's own map), so both must stay in step.
+  assert.equal(pkg.engines.dsh, '>=0.1.6-alpha.1 <0.2.0')
+})

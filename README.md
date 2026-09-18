@@ -27,8 +27,14 @@ dsh plugin --profile web add "github:CiaoBye/dsh-sensenova-provider"
 - Provider：`sensenova`
 - API：`https://token.sensenova.cn/v1`
 - 默认 Credential Ref：`SENSENOVA_API_KEY`
-- DSH：`>= 0.1.6-alpha.1 < 0.2.0`
+- DSH：`>= 0.1.6-alpha.1 < 0.2.0`（已实测 `0.1.6-alpha.1`、`0.1.6-alpha.2`）
 - Node.js：`>= 22`
+
+## DSH 兼容性声明
+
+`package.json` 用两个字段声明支持的 DSH 版本：官方 package manifest 字段 `engines.dsh`（SemVer 范围），以及 `dsh.compatibility.dshReleases`（逐版本实测记录）。
+
+DSH 发布新版本后，先在本机实测（加载插件并真实走一次请求），确认无破坏后再把该版本写进 `dshReleases`。没有实测过的版本不会标成 `compatible`，因此上表里出现某个版本，意味着它真的被跑过。
 
 ## 路由语义
 
