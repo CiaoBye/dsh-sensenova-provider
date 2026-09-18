@@ -34,6 +34,7 @@
 - 回填 `c238386`、`e670108` 的 Commit SHA，并首次推送本地提交到 `origin/main`。
 - 跟进 DSH `0.1.6-alpha.2`：`dsh.compatibility.dshReleases` 增加该版本的实测记录；同时按 DSH 公开的 package manifest 规范补上 `engines.dsh`（`>=0.1.6-alpha.1 <0.2.0`）。此前兼容范围只写在 README 和 peerDependencies 里，官方 manifest 字段是空的，外部工具读不到。
 - README 增加「DSH 兼容性声明」小节，写明两个字段的分工：`engines.dsh` 声明范围，`dshReleases` 逐版本记录**实测过**的版本；没有实测过的版本不写 `compatible`。
+- 记录一次本机环境事故（不是插件代码问题），供后续本地开发避坑：DSH 更新到 `0.1.6-alpha.2` 当天，`web` profile 的 `package.json`、`pnpm-lock.yaml`、`pnpm-workspace.yaml` 在 10:18:33–10:18:35 被整份重写，本插件的 bundle 条目消失，`node_modules/@ciaobye/dsh-sensenova-provider` 软链与 `settings.yaml` 里的 `llm-sensenova` 段都成了没人引用的残留，GUI 中 SenseNova 的模型与设置页一起消失；同一分钟内 `.plugin-manager/logs` 记录了一次 `pnpm add "dsh-llm-verifier@0.6.8"` 失败（`ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`，两个同批插件发布不足 24 小时被供应链接策略拦下）。按时间线，这是插件管理器的 pnpm 操作失败后重写 profile 造成的，本地插件只靠软链挂载、没有写进 `dependencies` 时就会被一并丢掉。恢复时必须**同时**写回 `dsh.profile.bundles` 与 `dependencies`（`link:` 协议）。
 
 ### 修复
 
@@ -55,12 +56,11 @@
 
 ### 验证
 
-- `npm run check`：通过。
-- `npm test`：78/78 通过。
 - 逐模型实打实发请求核验：`glm-5.2` 的 `high` / `max`、两个 flash 模型的 `low` / `high`、`deepseek-v4-pro` 与 `kimi-k3` 的全部档位均返回 `200`；`medium` / `xhigh` / `minimal` 已确认不在表内。
 - 用线上 `/models` 真实响应跑一遍 `parseCatalogModel`：广告 8 个模型，目录保留 5 个，被丢弃的正好是上述三个，其余模型与其档位未受影响。
 - 在 DSH `0.1.6-alpha.2` 上实机加载本插件并真实发请求：用临时 `DSH_HOME`（workspace 内）跑 `dsh --profile headless --patch <指向本仓库 index.js 的 overlay>`，把默认模型设为 `sensenova/deepseek-v4-flash`，模型回复 `OK`，session token 用量 7298 in / 12 out；插件在临时 home 下写出 `storages/llm-sensenova/key-state.json`（Host 侧注册、KeyPool 与持久化都在 alpha.2 下正常工作），该次记录里的 `cooldownUntil` 比请求开始晚 30 秒，说明这轮请求命中过 429 冷却路径并最终仍成功返回。
 - 逐项核对 alpha.2 的 API 契约，确认无需改代码：`dsh-llm` 的 `LlmAdapter`（`providerInfo` / `listModels` / `resolveModel` / `stream`）、`LlmConfigurableProvider`、`AdapterRegistrationHandle.replace`、`registerModelDiscovery`；`dsh-settings` 的 `installSection` 与 `setSource` / `onChange` 钩子；`dsh-typert-protocol` 的 `TypertRemoteContribution` 与 `register`；设置页 `settings.section`、`settings.models.provider-card` 槽位；客户端 `ctx.remote.$mount(contribution)` 与 `$on(event, listener)`。
+- 把插件重新挂回 `web` profile 后复查：`dsh --profile web --dump-config` 的 composed tree 里重新出现 `- id: llm-sensenova` 且配置正确（`apiBase` / `keys`），说明该 profile 会再次加载本插件；运行中的 GUI 需要一次热重组或重启 `dsh web` 才会看到效果。
 - `npm run check`：通过。
 - `npm test`：78/78 通过（新增的兼容性断言要求 `dshReleases` 与 `engines.dsh` 同步）。
 
