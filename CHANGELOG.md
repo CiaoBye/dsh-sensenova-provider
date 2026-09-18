@@ -63,6 +63,7 @@
 - 逐项核对 alpha.2 的 API 契约，确认无需改代码：`dsh-llm` 的 `LlmAdapter`（`providerInfo` / `listModels` / `resolveModel` / `stream`）、`LlmConfigurableProvider`、`AdapterRegistrationHandle.replace`、`registerModelDiscovery`；`dsh-settings` 的 `installSection` 与 `setSource` / `onChange` 钩子；`dsh-typert-protocol` 的 `TypertRemoteContribution` 与 `register`；设置页 `settings.section`、`settings.models.provider-card` 槽位；客户端 `ctx.remote.$mount(contribution)` 与 `$on(event, listener)`。
 - 把插件重新挂回 `web` profile 后复查：`dsh --profile web --dump-config` 的 composed tree 里重新出现 `- id: llm-sensenova` 且配置正确（`apiBase` / `keys`）。随后 `dsh web` 于 10:49:46 以新 profile 重启（进程从 PID 16972 换成 32372），启动时的插件守卫记录 `TargetVersion: 0.1.6-alpha.2`、`Safe: true`，即这次启动确实带着本插件完成组合。
 - 对照 `@deepseek-ai/dsh-package-manifest` 的 `DshManifest` / `DshClientManifest` / `DshEnginesManifest` 逐字段核对 `package.json`：`manifestVersion`、`bundle.patch`、`client.platform`、`client.inject`、`engines.dsh` 均在规范内且形状正确；新增测试锁住这几个字段。
+- 核对 alpha.2 的 Models 页 DOM 契约（设置页里那层「抑制原生编辑器」的逻辑依赖它，属于最容易随上游改版失效的部分）：`dsh-client-ui-settings-models` 仍把 provider 行渲染为 `<li>`（行内依次是 `data-slot="settings.models.provider-card"` 与编辑器），槽位仍是 `kind: "keyed"`、以 settings namespace 为 key，原生编辑器根类名仍是 `zGbnIq_editor` / `zGbnIq_addBlock` 这种 `<hash>_<name>` 形状，而 `editorActions` / `editorHeader` / `editorRoute` / `editorTitle` 也依旧存在。本插件的 token 正则 `(?:^|_)(?:editor|addBlock)$` 恰好只命中前两个类名，因此这层逻辑在 alpha.2 上行为不变，无需改动。
 - `npm run check`：通过。
 - `npm test`：79/79 通过（新增兼容性断言要求 `dshReleases` 与 `engines.dsh` 同步，并要求官方 manifest 字段齐全）。
 
