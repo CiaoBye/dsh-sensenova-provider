@@ -10,13 +10,47 @@
  * guess table.
  */
 
-/** Built-in fallback efforts for models whose `/models` entry omits them. */
+/**
+ * Built-in fallback efforts for models whose `/models` entry omits them, in
+ * ascending thinking strength.
+ *
+ * These are the levels a model actually *distinguishes*, which is not the same
+ * as the endpoint's accepted-value enum. The enum additionally carries
+ * compatibility aliases: accepted with `200 OK`, but silently collapsing onto
+ * another level. SenseNova documents `medium` and `xhigh` as exactly that, both
+ * resolving to `high` — "出于兼容考虑，接口也接受 medium 和 xhigh，但两者均映射为
+ * high". Copying the enum wholesale therefore ships levels that look real and
+ * are not: a user selecting `xhigh` to think harder gets `high`, with no error
+ * to explain why, which is harder to notice than a plainly missing level. Add
+ * an id only once the model's own documentation lists it as distinct.
+ */
 export const KNOWN_EFFORTS = new Map([
-  ['sensenova-6.8-flash-lite', ['low', 'medium', 'high', 'none']],
-  ['deepseek-v4-flash', ['low', 'medium', 'high', 'none']],
+  ['sensenova-6.8-flash-lite', ['low', 'high']],
+  ['deepseek-v4-flash', ['low', 'high']],
   ['deepseek-v4-pro', ['low', 'high', 'max']],
-  ['glm-5.2', ['low', 'medium', 'high', 'none']],
+  ['glm-5.2', ['high', 'max']],
   ['kimi-k3', ['low', 'high', 'max']],
+])
+
+/**
+ * Models `/models` still advertises but that cannot serve a chat completion at
+ * all, so listing them is worse than omitting them: the picker offers a choice
+ * whose every turn fails, and the failure looks like our bug rather than a
+ * retired route.
+ *
+ * Verified by requesting each one directly, three rounds with a working model
+ * interleaved as a control — all three answered `404` every round while the
+ * control answered `200` every round, so these are persistent, not an outage.
+ * The two `u1` entries declare `output_modalities: ["image"]` and are image
+ * generators, and `6.7-flash-lite` is the superseded version of the working
+ * `6.8-flash-lite`; neither difference is visible in the metadata the endpoint
+ * returns, so the ids have to be named here. Re-check this list when SenseNova
+ * publishes a model revision.
+ */
+export const UNAVAILABLE_MODELS = new Set([
+  'sensenova-6.7-flash-lite',
+  'sensenova-u1-fast',
+  'sensenova-u1.5-lite',
 ])
 
 function isRecord(value) {
@@ -106,6 +140,9 @@ export function displayName(id) {
 
 export function parseCatalogModel(raw, { effortOverrides } = {}) {
   if (!isRecord(raw) || typeof raw.id !== 'string' || raw.id.length === 0) return undefined
+  // Drop routes that cannot dispatch before they reach any picker or the
+  // settings catalog; see UNAVAILABLE_MODELS for how the ids were established.
+  if (UNAVAILABLE_MODELS.has(raw.id)) return undefined
   const declared = Array.isArray(raw.input_modalities) ? raw.input_modalities : []
   const modalities = [...new Set(declared.filter(value => value === 'text' || value === 'image'))]
   const efforts = resolveReasoningEfforts(raw, effortOverrides)
