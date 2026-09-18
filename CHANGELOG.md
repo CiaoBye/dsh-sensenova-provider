@@ -82,6 +82,8 @@
   - 内置 reasoning effort 表按厂商文档收敛到真正有区分度的档位，模型目录剔除三个无法派发的路由。
 - `38cd449` — `chore: declare DSH 0.1.6-alpha.2 compatibility`
   - `dshReleases` 增加 `0.1.6-alpha.2`，补上官方 manifest 字段 `engines.dsh`，README 增加兼容性声明说明。
+- `561bdc4` — `docs: record the profile rewrite that dropped the local plugin`
+  - 记录本机 profile 被插件管理器重写导致插件掉线的事故、恢复方式，以及重新挂回后的 composed tree 复查。
 
 ---
 
