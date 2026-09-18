@@ -64,6 +64,12 @@
 - 把插件重新挂回 `web` profile 后复查：`dsh --profile web --dump-config` 的 composed tree 里重新出现 `- id: llm-sensenova` 且配置正确（`apiBase` / `keys`）。随后 `dsh web` 于 10:49:46 以新 profile 重启（进程从 PID 16972 换成 32372），启动时的插件守卫记录 `TargetVersion: 0.1.6-alpha.2`、`Safe: true`，即这次启动确实带着本插件完成组合。
 - 对照 `@deepseek-ai/dsh-package-manifest` 的 `DshManifest` / `DshClientManifest` / `DshEnginesManifest` 逐字段核对 `package.json`：`manifestVersion`、`bundle.patch`、`client.platform`、`client.inject`、`engines.dsh` 均在规范内且形状正确；新增测试锁住这几个字段。
 - 核对 alpha.2 的 Models 页 DOM 契约（设置页里那层「抑制原生编辑器」的逻辑依赖它，属于最容易随上游改版失效的部分）：`dsh-client-ui-settings-models` 仍把 provider 行渲染为 `<li>`（行内依次是 `data-slot="settings.models.provider-card"` 与编辑器），槽位仍是 `kind: "keyed"`、以 settings namespace 为 key，原生编辑器根类名仍是 `zGbnIq_editor` / `zGbnIq_addBlock` 这种 `<hash>_<name>` 形状，而 `editorActions` / `editorHeader` / `editorRoute` / `editorTitle` 也依旧存在。本插件的 token 正则 `(?:^|_)(?:editor|addBlock)$` 恰好只命中前两个类名，因此这层逻辑在 alpha.2 上行为不变，无需改动。
+- 实测「是否该声明 `dsh-llm` 的 `systemPromptUpdate: 'in-history'`」——该字段会让 DSH 把变更后的 system prompt **追加**进历史而不是重写首条（保住 prompt 缓存），但只有模型真的把「任意位置最新的一条 system」当作有效系统提示词时才能声明；声明错了模型会继续按旧指令工作，且不会有任何报错。结果是否定的，因此**保持不声明**，DSH 默认行为（只读首条 system）对本 Provider 才是对的：
+  - 代号判别（首条 system 要求只答 `AMBER`，中途插入「之前指令全部作废，只答 `CRIMSON`」）：对照组（仅首条 system、以及带历史但无更新）均返回 `AMBER`；中途插入 2/2 轮返回 `AMBER`，放在提问之后 2/2 轮同样返回 `AMBER`。
+  - 语言判别（首条 system 要求只用中文，中途插入「规则作废，只用英文」这一更钝的信号）：对照组 2/2 轮中文，中途插入的样本仍是中文。
+  - 样本量受配额限制（见下），但两个独立探针方向一致，且都指向「后插入的 system 消息不生效」。
+- 顺带记录该 Key 的真实配额状况：直接打 `https://token.sensenova.cn/v1/chat/completions` 时 `429` 频繁出现（先是 `429003 inference exceeds tpm/rpm limit`，随后 `code 8 rpm exhausted`），首个探针 12 次请求只有 1 次成功，按 20/40/60 秒退避重试后才凑齐样本。插件的 429 冷却与「全部 Key 冷却时把最早恢复时间交回 DSH 重试」不是防御性代码，而是这台机器上的常态路径。
+- 另一个可选能力 `imageRequestPricing` 维持不声明：它要求按路由声明视觉 token 的计价方式，而 SenseNova 没有公开的图片 token 计价规则，猜一个值会让 token meter 直接算错，缺省才是安全的一侧。
 - `npm run check`：通过。
 - `npm test`：79/79 通过（新增兼容性断言要求 `dshReleases` 与 `engines.dsh` 同步，并要求官方 manifest 字段齐全）。
 
