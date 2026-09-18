@@ -86,6 +86,8 @@
   - `dshReleases` 增加 `0.1.6-alpha.2`，补上官方 manifest 字段 `engines.dsh`，README 增加兼容性声明说明。
 - `561bdc4` — `docs: record the profile rewrite that dropped the local plugin`
   - 记录本机 profile 被插件管理器重写导致插件掉线的事故、恢复方式，以及重新挂回后的 composed tree 复查。
+- `21eec84` — `chore: declare the DSH manifest format version`
+  - 补上 `dsh.manifestVersion: 1`，并新增测试锁住官方 manifest 字段（`bundle.patch` / `client.platform` / `client.inject`）。
 
 ---
 
