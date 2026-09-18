@@ -33,3 +33,17 @@ test('package declares the exact DSH releases it was verified against', () => {
   // (`dsh.compatibility` is this plugin's own map), so both must stay in step.
   assert.equal(pkg.engines.dsh, '>=0.1.6-alpha.1 <0.2.0')
 })
+test('package declares the public DSH manifest fields', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))
+  // Names and shapes come from `@deepseek-ai/dsh-package-manifest`, the schema
+  // DSH 0.1.6-alpha.2 publishes. Its readers infer no defaults, so an omitted
+  // field reads as undeclared instead of as the current format.
+  assert.equal(pkg.dsh.manifestVersion, 1)
+  assert.equal(pkg.dsh.bundle.patch, './cordis.patch.yml')
+  assert.equal(pkg.dsh.client.platform, 'web')
+  // Informational package-name dependencies of the browser half, not Cordis
+  // service injection — the services it injects are the runtime `inject` list
+  // exported by client.js.
+  assert.ok(Array.isArray(pkg.dsh.client.inject) && pkg.dsh.client.inject.length > 0)
+  for (const name of pkg.dsh.client.inject) assert.ok(name.startsWith('@deepseek-ai/'), name)
+})

@@ -32,7 +32,9 @@ dsh plugin --profile web add "github:CiaoBye/dsh-sensenova-provider"
 
 ## DSH 兼容性声明
 
-`package.json` 用两个字段声明支持的 DSH 版本：官方 package manifest 字段 `engines.dsh`（SemVer 范围），以及 `dsh.compatibility.dshReleases`（逐版本实测记录）。
+`package.json` 的 `dsh` 块按官方 manifest 规范（`@deepseek-ai/dsh-package-manifest`）声明：`manifestVersion: 1` 标出格式版本，`bundle.patch` 指向 bundle 层，`client.platform` / `client.inject` 描述浏览器半边。
+
+支持的 DSH 版本写在两个字段里：官方 package manifest 字段 `engines.dsh`（SemVer 范围），以及 `dsh.compatibility.dshReleases`（逐版本实测记录）。
 
 DSH 发布新版本后，先在本机实测（加载插件并真实走一次请求），确认无破坏后再把该版本写进 `dshReleases`。没有实测过的版本不会标成 `compatible`，因此上表里出现某个版本，意味着它真的被跑过。
 
